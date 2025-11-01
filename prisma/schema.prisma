@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(EMPLOYEE)
+  password      String?
+  employeeId    String?   @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  employee      Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Employee {
+  id          String       @id @default(cuid())
+  name        String
+  email       String?      @unique
+  phone       String?
+  hireDate    DateTime
+  payRate     Decimal      @db.Decimal(10, 2)
+  payUnit     PayRateUnit  @default(DAILY)
+  role        EmployeeRole @default(OTHER)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  debts       Debt[]
+  salaryLines SalaryLine[]
+  shifts      Shift[]
+  shortages   Shortage[]   @relation("ShortageAssignedTo")
+  user        User?
+}
+
+model Shift {
+  id         String           @id @default(cuid())
+  employeeId String
+  date       DateTime
+  startTime  DateTime
+  endTime    DateTime
+  type       ShiftType        @default(CUSTOM)
+  attended   Boolean          @default(false)
+  status     AttendanceStatus @default(UNMARKED)
+  hours      Float            @default(0)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  penalties  ShiftPenalty[]
+  bonuses    ShiftBonus[]
+  hookahs    ShiftHookah[]
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  price     Decimal  @db.Decimal(10, 2)
+  stock     Int      @default(0)
+  category  String?
+  categoryId String?
+  categoryRef Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  lastImportedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  debts     Debt[]
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  parentId  String?
+  parent    Category?  @relation("CategoryToChildren", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryToChildren")
+  products  Product[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Debt {
+  id         String   @id @default(cuid())
+  employeeId String
+  productId  String
+  quantity   Int
+  date       DateTime
+  amount     Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id])
+}
+
+model Shortage {
+  id                   String    @id @default(cuid())
+  productNameSystem    String
+  productNameActual    String?
+  countSystem          Int
+  countActual          Int
+  price                Decimal   @db.Decimal(10, 2)
+  suggestedReplacement Json?
+  resolved             Boolean   @default(false)
+  assignedToEmployeeId String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  assignedTo           Employee? @relation("ShortageAssignedTo", fields: [assignedToEmployeeId], references: [id], onDelete: SetNull)
+}
+
+model SalaryBatch {
+  id        String            @id @default(cuid())
+  startDate DateTime
+  endDate   DateTime
+  status    SalaryBatchStatus @default(DRAFT)
+  createdBy String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  lines     SalaryLine[]
+}
+
+model SalaryLine {
+  id          String      @id @default(cuid())
+  batchId     String
+  employeeId  String
+  grossAmount Decimal     @db.Decimal(10, 2)
+  debtAmount  Decimal     @db.Decimal(10, 2)
+  shortageAmt Decimal     @db.Decimal(10, 2)
+  netAmount   Decimal     @db.Decimal(10, 2)
+  approved    Boolean     @default(false)
+  approvedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  batch       SalaryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model ShiftPenalty {
+  id        String   @id @default(cuid())
+  shiftId   String
+  amount    Decimal  @db.Decimal(10, 2)
+  reason    String
+  createdAt DateTime @default(now())
+  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+}
+
+model ShiftBonus {
+  id        String   @id @default(cuid())
+  shiftId   String
+  amount    Decimal  @db.Decimal(10, 2)
+  reason    String
+  createdAt DateTime @default(now())
+  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+}
+
+model ShiftHookah {
+  id        String   @id @default(cuid())
+  shiftId   String
+  qty       Int      @default(1)
+  amountPer Decimal  @db.Decimal(10, 2) @default(200)
+  createdAt DateTime @default(now())
+  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+}
+
+enum UserRole {
+  DIRECTOR
+  SENIOR_ADMIN
+  ADMIN
+  EMPLOYEE
+}
+
+enum EmployeeRole {
+  CASHIER
+  MANAGER
+  STOCKER
+  OTHER
+}
+
+enum PayRateUnit {
+  HOURLY
+  DAILY
+}
+
+enum ShiftType {
+  MORNING
+  EVENING
+  NIGHT
+  CUSTOM
+}
+
+enum AttendanceStatus {
+  UNMARKED
+  ATTENDED
+  ABSENT
+  LATE
+}
+
+enum SalaryBatchStatus {
+  DRAFT
+  FINALIZED
+}

@@ -1,0 +1,47 @@
+{
+  "name": "salary-manager",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@auth/prisma-adapter": "^2.11.1",
+    "@deemlol/next-icons": "^0.1.9",
+    "@headlessui/react": "^2.2.9",
+    "@heroicons/react": "^2.2.0",
+    "@prisma/client": "^6.18.0",
+    "@react-pdf/renderer": "^4.3.1",
+    "@tanstack/react-query": "^5.90.5",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.2",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "fuse.js": "^7.1.0",
+    "next": "16.0.1",
+    "next-auth": "^4.24.13",
+    "prisma": "^6.18.0",
+    "react": "19.2.0",
+    "react-big-calendar": "^1.19.4",
+    "react-dom": "19.2.0",
+    "react-hook-form": "^7.65.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-big-calendar": "^1.16.3",
+    "@types/react-dom": "^19",
+    "dotenv": "^17.2.3",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.1",
+    "swr": "^2.3.6",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+:root {
+  /* Windows 11 – светлая палитра */
+  --background: #f5f7fb;
+  --foreground: #0b1220;
+  --primary: #2563eb;
+  --primary-600: #1d4ed8;
+  --primary-700: #1e40af;
+  --muted: #eef2f9;
+  --border: #e2e8f0;
+  --radius: 12px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Force light theme for consistent store UI */
+/* Remove automatic dark mode switching */
+
+body {
+  /* Mica-like background */
+  background: radial-gradient(1200px 700px at 10% -10%, #ffffff 0%, #f3f6fb 40%, #edf1f8 70%) fixed;
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Современные базовые элементы (Windows 11) */
+button { transition: all .18s ease; border-radius: var(--radius); }
+.btn-primary {
+  background: linear-gradient(180deg, var(--primary) 0%, var(--primary-600) 100%);
+  color: #fff; border: none; padding: .6rem 1rem; border-radius: var(--radius);
+  box-shadow: 0 2px 6px rgba(37,99,235,.25);
+}
+.btn-ghost { background:#fff; color: var(--foreground); border:1px solid var(--border); padding:.45rem .8rem; border-radius: 999px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.btn-ghost:hover { background:#f6f8fc; }
+.chip { display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .6rem; border-radius:999px; border:1px solid var(--border); background:#fff; font-size:.75rem; }
+.toolbar { display:flex; align-items:center; gap:.5rem; }
+.btn-primary:hover { filter: brightness(1.05); box-shadow: 0 4px 12px rgba(37,99,235,.3); }
+.btn-primary:active { filter: brightness(.98); }
+.btn-primary:focus-visible { outline: 3px solid rgba(37,99,235,.35); outline-offset: 2px; }
+
+input, select, textarea {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: var(--radius);
+  padding: .45rem .6rem;
+  box-shadow: 0 1px 1.5px rgba(0,0,0,.04) inset;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+}
+
+.modal-backdrop { background: rgba(0,0,0,.5); }
+.modal-panel { background: #fff; border-radius: var(--radius); box-shadow: 0 25px 60px rgba(0,0,0,.12); border:1px solid var(--border); }
+
+/* Ensure form controls stay readable on light background */
+input, select, textarea, button {
+  color: #171717;
+}
+input, select, textarea {
+  background: #ffffff;
+}
+
+/* Синхронизация утилит под Win11 тему */
+.border { border-color: var(--border) !important; }
+.bg-gray-50 { background-color: #f6f8fc !important; }
+.text-gray-600 { color: #475569 !important; }
+
+/* react-big-calendar theming */
+.rbc-calendar { background:#fff; border:1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+.rbc-toolbar { padding:.5rem; border-bottom:1px solid var(--border); }
+.rbc-toolbar button { background:#fff; color: var(--foreground); border:1px solid var(--border); padding:.35rem .8rem; border-radius: 999px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.rbc-today { background:#f6f8fc; }
+.rbc-off-range-bg { background:#fafbff; }
+.rbc-event { border-radius: 8px; padding:2px 6px; }
