@@ -41,3 +41,4 @@ Open `http://localhost:3000`. Visit `/register` once to create the first admin (
 Notes:
 - Role-based access: middleware protects authenticated routes; admin-only actions are enforced via UI in this MVP. Harden API checks as needed.
 - PDF generation uses `@react-pdf/renderer` client-side for payslips.
+"# syndicate-inventory" 
