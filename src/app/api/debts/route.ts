@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         adminName: userName,
         productName: product.name,
         quantity,
-        telegramTag: created.employee?.telegramTag,
+        telegramTag: created.employee?.telegramTag || undefined,
         topicId: settings.topicDebt || undefined,
       });
     }
