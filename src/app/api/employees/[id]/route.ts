@@ -7,10 +7,15 @@ const employeeSchema = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional().or(z.literal("")).transform((v) => (v ? v : undefined)),
   phone: z.string().optional(),
+  telegramTag: z.string().optional(),
   hireDate: z.string().optional(),
   payRate: z.number().positive().optional(),
   payUnit: z.enum(["HOURLY", "DAILY"]).optional(),
   role: z.enum(["CASHIER", "MANAGER", "STOCKER", "OTHER"]).optional(),
+  paymentMethod: z.enum(["SBP", "BANK_CARD"]).optional().or(z.literal("")).transform((v) => (v ? v : undefined)),
+  phoneNumber: z.string().optional(),
+  cardNumber: z.string().optional(),
+  bankName: z.string().optional(),
 });
 
 export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) {

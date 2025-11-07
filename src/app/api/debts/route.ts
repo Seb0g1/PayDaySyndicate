@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { notifyDebt } from "@/lib/telegram";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -10,7 +11,7 @@ export async function GET(req: Request) {
   const where: any = {};
   if (employeeId) where.employeeId = employeeId;
   if (productId) where.productId = productId;
-  const debts = await prisma.debt.findMany({ where, include: { product: true, employee: true }, orderBy: { date: "desc" } });
+  const debts = await prisma.debt.findMany({ where, include: { product: true, employee: { select: { id: true, name: true, telegramTag: true } } }, orderBy: { date: "desc" } });
   return NextResponse.json(debts);
 }
 
@@ -20,6 +21,8 @@ export async function POST(req: Request) {
   const session = await getAuth();
   const role = (((session as any)?.user as any)?.role ?? "EMPLOYEE") as string;
   const userId = (((session as any)?.user as any)?.id ?? "") as string;
+  const userName = (((session as any)?.user as any)?.name ?? "Администратор") as string;
+  
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -33,7 +36,30 @@ export async function POST(req: Request) {
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) return new NextResponse("Product not found", { status: 404 });
   const amount = product.price.mul(quantity);
-  const created = await prisma.debt.create({ data: { employeeId, productId, quantity, date: new Date(date), amount } });
+  const created = await prisma.debt.create({ 
+    data: { employeeId, productId, quantity, date: new Date(date), amount },
+    include: { employee: { select: { id: true, name: true, telegramTag: true } } },
+  });
+  
+  // Отправляем уведомление в Telegram
+  try {
+    const settings = await prisma.telegramSettings.findFirst();
+    if (settings?.enabled && settings?.botToken) {
+      await notifyDebt({
+        botToken: settings.botToken,
+        chatId: settings.chatId || undefined,
+        adminName: userName,
+        productName: product.name,
+        quantity,
+        telegramTag: created.employee?.telegramTag,
+        topicId: settings.topicDebt || undefined,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to send Telegram notification:", error);
+    // Не прерываем создание долга из-за ошибки уведомления
+  }
+  
   return NextResponse.json(created, { status: 201 });
 }
 

@@ -7,8 +7,10 @@ const schema = z.object({
   name: z.string().min(1).optional(),
   price: z.number().positive().optional(),
   category: z.string().optional(), // подкатегория (тег)
+  subcategory: z.string().optional(), // подкатегория
   stock: z.number().int().nonnegative().optional(),
   categoryId: z.string().optional(), // основная категория
+  isHidden: z.boolean().optional(), // скрыть товар
 });
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -26,15 +28,16 @@ export async function DELETE(_: Request, ctx: { params: Promise<{ id: string }> 
   const forbidden = await requireAdmin();
   if (forbidden) return forbidden;
   const { id } = await ctx.params;
-  const deps = await prisma.debt.count({ where: { productId: id } });
-  if (deps > 0) {
-    return NextResponse.json({ message: "Нельзя удалить товар: есть долги с этим товаром" }, { status: 409 });
-  }
+  
+  // Скрываем товар вместо удаления (soft delete)
   try {
-    await prisma.product.delete({ where: { id } });
+    await prisma.product.update({
+      where: { id },
+      data: { isHidden: true },
+    });
     return new NextResponse(null, { status: 204 });
   } catch (e: any) {
-    return NextResponse.json({ message: "Не удалось удалить товар" }, { status: 500 });
+    return NextResponse.json({ message: "Не удалось скрыть товар" }, { status: 500 });
   }
 }
 

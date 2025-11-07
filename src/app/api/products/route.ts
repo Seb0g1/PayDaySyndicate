@@ -11,10 +11,47 @@ export async function GET(req: Request) {
   const categoryId = searchParams.get("categoryId")?.trim() || undefined;
   const sort = searchParams.get("sort") || "name"; // name | price
   const dir = (searchParams.get("dir") || "asc").toLowerCase() === "desc" ? "desc" : "asc";
+  const stockFilter = searchParams.get("stockFilter") || "all";
 
   const where: any = {};
   if (categoryId) where.categoryId = categoryId;
   if (q) where.name = { contains: q, mode: "insensitive" };
+  // По умолчанию показываем только не скрытые товары
+  const includeHidden = searchParams.get("includeHidden") === "true";
+  if (!includeHidden) {
+    where.isHidden = false;
+  }
+
+  // Фильтр по остаткам
+  if (stockFilter !== "all") {
+    switch (stockFilter) {
+      case "out":
+        where.stock = 0;
+        break;
+      case "low":
+        where.stock = { gte: 1, lte: 5 };
+        break;
+      case "medium":
+        where.stock = { gte: 6, lte: 15 };
+        break;
+      case "high":
+        where.stock = { gte: 16 };
+        break;
+    }
+  }
+
+  // Получаем список исключенных ID товаров из LangameSettings
+  try {
+    const langameSettings = await prisma.langameSettings.findFirst();
+    if (langameSettings?.excludedProductIds && langameSettings.excludedProductIds.length > 0) {
+      // Исключаем товары с ID из списка исключений
+      where.NOT = {
+        langameId: { in: langameSettings.excludedProductIds },
+      };
+    }
+  } catch (error) {
+    // Игнорируем ошибки при получении настроек
+  }
 
   const orderBy: any = sort === "price" ? { price: dir } : { name: dir };
   const products = await prisma.product.findMany({ where, orderBy, include: { categoryRef: true } });

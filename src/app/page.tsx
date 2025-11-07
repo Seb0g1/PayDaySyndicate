@@ -7,17 +7,22 @@ import { useLoading } from "@/components/LoadingProvider";
 export default function Home() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [now, setNow] = useState(new Date());
+  const [now, setNow] = useState<Date | null>(null);
   const { start } = useLoading();
 
   useEffect(() => {
+    setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 1000);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter") go();
+      if (e.key === "Enter") {
+        start();
+        if ((session as any)?.user) router.push("/dashboard");
+        else router.push("/login");
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => { clearInterval(t); window.removeEventListener("keydown", onKey); };
-  }, [session]);
+  }, [session, start, router]);
 
   const go = () => {
     start();
@@ -26,8 +31,8 @@ export default function Home() {
   };
 
   const pad = (n: number) => String(n).padStart(2, "0");
-  const h = pad(now.getHours());
-  const m = pad(now.getMinutes());
+  const h = now ? pad(now.getHours()) : "00";
+  const m = now ? pad(now.getMinutes()) : "00";
   const dayNames = ["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"];
   const monthNames = ["Января","Февраля","Марта","Апреля","Мая","Июня","Июля","Августа","Сентября","Октября","Ноября","Декабря"];
 
@@ -39,11 +44,13 @@ export default function Home() {
       </div>
       <div className="absolute bottom-6 left-6">
         <div className="text-[140px] leading-none font-semibold tracking-tight">{h}:{m}</div>
-        <div className="mt-2 flex items-center gap-8 text-xs text-gray-300">
-          <span>{dayNames[now.getDay()]}</span>
-          <span>{now.getDate()} {monthNames[now.getMonth()]}</span>
-          <span>UTC{Intl.DateTimeFormat().resolvedOptions().timeZone ? "" : ""}</span>
-        </div>
+        {now && (
+          <div className="mt-2 flex items-center gap-8 text-xs text-gray-300">
+            <span>{dayNames[now.getDay()]}</span>
+            <span>{now.getDate()} {monthNames[now.getMonth()]}</span>
+            <span>UTC{Intl.DateTimeFormat().resolvedOptions().timeZone ? "" : ""}</span>
+          </div>
+        )}
       </div>
       <div className="absolute bottom-6 right-6 text-xs text-gray-400">Syndicate App</div>
     </div>

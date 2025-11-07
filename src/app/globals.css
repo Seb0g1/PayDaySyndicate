@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  /* Windows 11 – светлая палитра */
-  --background: #f5f7fb;
-  --foreground: #0b1220;
-  --primary: #2563eb;
-  --primary-600: #1d4ed8;
-  --primary-700: #1e40af;
-  --muted: #eef2f9;
-  --border: #e2e8f0;
-  --radius: 12px;
+  /* Cyber Syndicate - кибер клуб палитра */
+  --background: #0a0a0a;
+  --foreground: #ffffff;
+  --primary: #ff0000;
+  --primary-600: #cc0000;
+  --primary-700: #990000;
+  --muted: #1a1a1a;
+  --border: #333333;
+  --radius: 4px;
 }
 
 @theme inline {
@@ -19,66 +19,291 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Force light theme for consistent store UI */
-/* Remove automatic dark mode switching */
-
+/* Cyber Syndicate Theme - Modern */
 body {
-  /* Mica-like background */
-  background: radial-gradient(1200px 700px at 10% -10%, #ffffff 0%, #f3f6fb 40%, #edf1f8 70%) fixed;
+  background: linear-gradient(135deg, #0a0a0a 0%, #000000 50%, #0a0a0a 100%);
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 400;
 }
 
-/* Современные базовые элементы (Windows 11) */
-button { transition: all .18s ease; border-radius: var(--radius); }
-.btn-primary {
-  background: linear-gradient(180deg, var(--primary) 0%, var(--primary-600) 100%);
-  color: #fff; border: none; padding: .6rem 1rem; border-radius: var(--radius);
-  box-shadow: 0 2px 6px rgba(37,99,235,.25);
+/* Cyber Syndicate базовые элементы - Modern */
+button { 
+  transition: all .2s cubic-bezier(0.4, 0, 0.2, 1); 
+  border-radius: 8px;
+  font-weight: 500;
 }
-.btn-ghost { background:#fff; color: var(--foreground); border:1px solid var(--border); padding:.45rem .8rem; border-radius: 999px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-.btn-ghost:hover { background:#f6f8fc; }
-.chip { display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .6rem; border-radius:999px; border:1px solid var(--border); background:#fff; font-size:.75rem; }
-.toolbar { display:flex; align-items:center; gap:.5rem; }
-.btn-primary:hover { filter: brightness(1.05); box-shadow: 0 4px 12px rgba(37,99,235,.3); }
-.btn-primary:active { filter: brightness(.98); }
-.btn-primary:focus-visible { outline: 3px solid rgba(37,99,235,.35); outline-offset: 2px; }
+.btn-primary {
+  background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+  color: #ffffff;
+  border: none;
+  padding: .6rem 1.2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(255, 0, 0, 0.3);
+  font-weight: 600;
+}
+.btn-primary:hover { 
+  background: linear-gradient(135deg, #ff1a1a 0%, #dd0000 100%);
+  box-shadow: 0 6px 16px rgba(255, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+.btn-primary:active { 
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(255, 0, 0, 0.3);
+}
+.btn-primary:focus-visible { 
+  outline: 2px solid #ff0000;
+  outline-offset: 2px;
+}
+
+.btn-ghost { 
+  background: rgba(255, 255, 255, 0.05); 
+  color: #ffffff; 
+  border: 1px solid rgba(255, 255, 255, 0.1); 
+  padding:.45rem .8rem; 
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
+.btn-ghost:hover { 
+  background: rgba(255, 0, 0, 0.1);
+  border-color: rgba(255, 0, 0, 0.3);
+  box-shadow: 0 0 12px rgba(255, 0, 0, 0.2);
+}
+
+.chip { 
+  display:inline-flex; 
+  align-items:center; 
+  gap:.35rem; 
+  padding:.25rem .6rem; 
+  border-radius:8px;
+  border:1px solid rgba(255, 0, 0, 0.2); 
+  background: rgba(255, 0, 0, 0.1); 
+  font-size:.75rem;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+}
+.toolbar { 
+  display:flex; 
+  align-items:center; 
+  gap:.5rem; 
+}
 
 input, select, textarea {
-  border: 1px solid var(--border);
-  background: #fff;
-  border-radius: var(--radius);
-  padding: .45rem .6rem;
-  box-shadow: 0 1px 1.5px rgba(0,0,0,.04) inset;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: .5rem .75rem;
+  color: #ffffff;
+  backdrop-filter: blur(10px);
+  transition: all .2s ease;
+}
+input::placeholder, select::placeholder, textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #ff0000;
+  box-shadow: 0 0 0 3px rgba(255, 0, 0, 0.1), 0 0 12px rgba(255, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Select dropdown styling - убираем синий цвет */
+select option {
+  background: #000000;
+  color: #ffffff;
+}
+
+select::-webkit-scrollbar {
+  width: 8px;
+}
+
+select::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+select::-webkit-scrollbar-thumb {
+  background: rgba(255, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+select::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 0, 0, 0.5);
 }
 
 .card {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 0, 0, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  transition: all .2s ease;
+}
+.card:hover {
+  border-color: rgba(255, 0, 0, 0.4);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
-.modal-backdrop { background: rgba(0,0,0,.5); }
-.modal-panel { background: #fff; border-radius: var(--radius); box-shadow: 0 25px 60px rgba(0,0,0,.12); border:1px solid var(--border); }
+.modal-backdrop { 
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+}
+.modal-panel { 
+  background: rgba(20, 20, 20, 0.95); 
+  border-radius: 16px; 
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(255, 0, 0, 0.2); 
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+}
 
-/* Ensure form controls stay readable on light background */
+/* Fix для мобильных устройств - блокировка прокрутки фона при открытом модальном окне */
+body:has([data-modal-open="true"]) {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+/* Более безопасный подход для старых браузеров */
+body.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+/* Отключение инерционного скролла на iOS для модальных окон */
+.modal-panel,
+[class*="overflow-y-auto"] {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Cyber Syndicate цвета */
 input, select, textarea, button {
-  color: #171717;
+  color: #ffffff;
 }
 input, select, textarea {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
 }
 
-/* Синхронизация утилит под Win11 тему */
-.border { border-color: var(--border) !important; }
-.bg-gray-50 { background-color: #f6f8fc !important; }
-.text-gray-600 { color: #475569 !important; }
+.border { border-color: rgba(255, 0, 0, 0.2) !important; }
+.bg-gray-50 { background-color: rgba(255, 255, 255, 0.03) !important; }
+.text-gray-600 { color: rgba(255, 255, 255, 0.6) !important; }
 
-/* react-big-calendar theming */
-.rbc-calendar { background:#fff; border:1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.06); }
-.rbc-toolbar { padding:.5rem; border-bottom:1px solid var(--border); }
-.rbc-toolbar button { background:#fff; color: var(--foreground); border:1px solid var(--border); padding:.35rem .8rem; border-radius: 999px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-.rbc-today { background:#f6f8fc; }
-.rbc-off-range-bg { background:#fafbff; }
-.rbc-event { border-radius: 8px; padding:2px 6px; }
+/* react-big-calendar theming - Modern */
+.rbc-calendar { 
+  background: rgba(255, 255, 255, 0.03); 
+  border: 1px solid rgba(255, 0, 0, 0.2); 
+  border-radius: 12px; 
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+}
+.rbc-toolbar { 
+  padding:.75rem; 
+  border-bottom: 1px solid rgba(255, 0, 0, 0.2); 
+  background: rgba(255, 255, 255, 0.02);
+}
+.rbc-toolbar button { 
+  background: rgba(255, 255, 255, 0.05); 
+  color: #ffffff; 
+  border: 1px solid rgba(255, 255, 255, 0.1); 
+  padding:.5rem 1rem; 
+  border-radius: 8px; 
+  font-weight: 500;
+  transition: all .2s ease;
+}
+.rbc-toolbar button:hover {
+  border-color: rgba(255, 0, 0, 0.4);
+  background: rgba(255, 0, 0, 0.1);
+  box-shadow: 0 0 12px rgba(255, 0, 0, 0.2);
+}
+.rbc-toolbar button.rbc-active {
+  background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+  border-color: #ff0000;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(255, 0, 0, 0.3);
+}
+.rbc-today { background: rgba(255, 0, 0, 0.08); }
+.rbc-off-range-bg { background: rgba(255, 255, 255, 0.01); }
+.rbc-event { border-radius: 6px; padding:2px 6px; font-weight: 500; }
+
+/* Корректное отображение событий в месячном виде */
+.rbc-month-view .rbc-event {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Скрытие кнопки "2more" и показ всех событий как линии */
+.rbc-show-more {
+  display: none !important;
+}
+
+/* Адаптация для мобильных устройств */
+@media (max-width: 768px) {
+  .rbc-month-view .rbc-event {
+    font-size: 10px;
+    padding: 1px 4px;
+    font-weight: 500;
+  }
+  .rbc-month-view .rbc-header {
+    font-size: 11px;
+    padding: 4px 2px;
+  }
+  .rbc-toolbar {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  .rbc-toolbar button {
+    font-size: 11px;
+    padding: 0.25rem 0.5rem;
+  }
+  
+  /* Fix для touch событий на мобильных устройствах */
+  .rbc-event {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Обеспечиваем корректное отображение событий в месячном виде на мобильных */
+  .rbc-month-view .rbc-row-segment .rbc-event-content {
+    display: block !important;
+  }
+  
+  /* Горизонтальный скролл для календаря на мобильных */
+  .rbc-month-view {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .rbc-toolbar-label {
+    font-size: 14px;
+    font-weight: 600;
+  }
+}
+
+/* Временные метки для смен */
+.rbc-month-view .rbc-day-bg {
+  position: relative;
+}
+.rbc-month-view .rbc-day-bg::after {
+  content: "9:00 21:00";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 7px;
+  color: #aaa;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 1;
+}
+.rbc-month-view .rbc-date-cell {
+  position: relative;
+}
+
+/* Скрытие временных меток на мобильных */
+@media (max-width: 768px) {
+  .rbc-month-view .rbc-day-bg::after {
+    display: none;
+  }
+}
+

@@ -14,7 +14,7 @@ export default async function DashboardPage() {
       case "ADMIN":
         return ["employees","products","shortages"].includes(key) ? false : true;
       default:
-        return key === "home";
+        return ["home", "reports"].includes(key);
     }
   };
   return (
@@ -30,6 +30,7 @@ export default async function DashboardPage() {
         {visible("debts") && <Card href="/dashboard/debts" title="Долги" desc="Учёт долгов сотрудников" />}
         {visible("shortages") && <Card href="/dashboard/shortages" title="Недостачи" desc="Фиксация и урегулирование недостач" />}
         {visible("salaries") && <Card href="/dashboard/salaries" title="Зарплаты" desc="Расчёт и утверждение выплат" />}
+        {visible("reports") && <Card href="/dashboard/reports" title="Отчёты" desc="Финансовые, кальяны, акции и другие" />}
       </div>
       {role !== "DIRECTOR" && (
         <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-3">
@@ -42,9 +43,9 @@ export default async function DashboardPage() {
 
 function Card({ href, title, desc }: { href: string; title: string; desc: string }) {
   return (
-    <Link href={href} className="block rounded border bg-white p-4 hover:shadow">
-      <div className="font-medium">{title}</div>
-      <div className="text-sm text-gray-600">{desc}</div>
+    <Link href={href} className="card block p-6 hover:shadow-lg transition-all duration-200">
+      <div className="font-semibold text-lg text-white mb-2">{title}</div>
+      <div className="text-sm text-gray-400">{desc}</div>
     </Link>
   );
 }

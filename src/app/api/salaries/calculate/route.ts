@@ -16,6 +16,12 @@ export async function GET(req: Request) {
   const shareIds = shareParam.split(",").map((s) => s.trim()).filter(Boolean);
   const overrideStr = searchParams.get("override") || "";
   const overrideVal = Number((overrideStr || "").replace(/\s/g, "").replace(",", "."));
+  
+  // Получаем последний сохраненный пересчет с данными о недостачах
+  const latestSavedCount = await prisma.inventoryCountHistory.findFirst({
+    where: { status: "SAVED" },
+    orderBy: { updatedAt: "desc" },
+  });
 
   let employees = await prisma.employee.findMany();
   if (role !== "DIRECTOR") {
@@ -26,17 +32,46 @@ export async function GET(req: Request) {
   }
   const result = [] as any[];
 
+  // Подсчитываем количество смен для каждого сотрудника за период
+  const employeeShiftCounts = new Map<string, number>();
+  const allShiftsInPeriod = await prisma.shift.findMany({
+    where: { date: { gte: start, lte: end }, attended: true },
+    select: { employeeId: true },
+  });
+  allShiftsInPeriod.forEach(shift => {
+    employeeShiftCounts.set(shift.employeeId, (employeeShiftCounts.get(shift.employeeId) || 0) + 1);
+  });
+
   // Общая сумма недостач без назначенного сотрудника за период
-  let unassignedSum: number;
+  let unassignedSum: number = 0;
   let unassignedDetails: { name: string; qty: number; price: number }[] = [];
   if (!Number.isNaN(overrideVal) && overrideStr !== "") {
     unassignedSum = Math.max(0, overrideVal);
   } else {
-    const unassigned = await prisma.shortage.findMany({ where: { assignedToEmployeeId: null, createdAt: { gte: start, lte: end } } });
-    unassignedSum = unassigned.reduce((acc: number, s: any) => acc + Number(s.price) * Math.max(0, s.countSystem - s.countActual), 0);
-    unassignedDetails = unassigned.map((s: any) => ({ name: s.productNameSystem, qty: Math.max(0, s.countSystem - s.countActual), price: Number(s.price) }));
+    // Пытаемся использовать данные из последнего сохраненного пересчета
+    if (latestSavedCount && latestSavedCount.data && (latestSavedCount.data as any).__shortageTotalValue) {
+      unassignedSum = Number((latestSavedCount.data as any).__shortageTotalValue) || 0;
+    } else {
+      // Если нет данных в пересчете, берем из недостач без назначенного сотрудника
+      const unassigned = await prisma.shortage.findMany({ where: { assignedToEmployeeId: null, createdAt: { gte: start, lte: end } } });
+      unassignedSum = unassigned.reduce((acc: number, s: any) => acc + Number(s.price) * Math.max(0, s.countSystem - s.countActual), 0);
+      unassignedDetails = unassigned.map((s: any) => ({ name: s.productNameSystem, qty: Math.max(0, s.countSystem - s.countActual), price: Number(s.price) }));
+    }
   }
-  const divisor = Math.max(1, shareIds.length);
+  
+  // Используем выбранных сотрудников для деления недостач, если они указаны
+  // Иначе используем сотрудников с более чем 4 сменами
+  let employeeIdsForSharing: string[] = [];
+  if (shareIds.length > 0) {
+    // Используем выбранных сотрудников из параметра share
+    employeeIdsForSharing = shareIds;
+  } else {
+    // Фильтруем сотрудников: только те, у кого больше 4 смен
+    employeeIdsForSharing = Array.from(employeeShiftCounts.entries())
+      .filter(([_, count]) => count > 4)
+      .map(([id, _]) => id);
+  }
+  const divisor = Math.max(1, employeeIdsForSharing.length);
 
   for (const e of employees) {
     const shifts = await prisma.shift.findMany({ where: { employeeId: e.id, date: { gte: start, lte: end } } });
@@ -69,7 +104,8 @@ export async function GET(req: Request) {
 
     const shortages = await prisma.shortage.findMany({ where: { assignedToEmployeeId: e.id, createdAt: { gte: start, lte: end } } });
     let shortageAmt = shortages.reduce((acc: number, s: any) => acc + Number(s.price) * Math.max(0, s.countSystem - s.countActual), 0);
-    const unassignedShare = shareIds.includes(e.id) ? unassignedSum / divisor : 0;
+    // Распределяем недостачи среди выбранных сотрудников
+    const unassignedShare = employeeIdsForSharing.includes(e.id) ? unassignedSum / divisor : 0;
     if (unassignedShare > 0) shortageAmt += unassignedShare;
 
     // Penalties/Bonuses/Hookahs for this employee's shifts

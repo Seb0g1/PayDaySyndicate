@@ -3,6 +3,7 @@ import useSWR from "swr";
 import { useEffect, useMemo, useState } from "react";
 import { useNextIcons } from "@/components/NI";
 import { useSession } from "next-auth/react";
+import { useSuccess } from "@/components/SuccessProvider";
 
 type Row = {
   employee: { id: string; name: string };
@@ -165,32 +166,35 @@ export default function SalariesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="card p-3 flex items-end gap-2">
-        <div>
-          <label className="block text-xs text-gray-500">Начало</label>
-          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="border rounded px-2 py-1" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500">Конец</label>
-          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="border rounded px-2 py-1" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500">Общая недостача (из страницы Недостачи)</label>
-          <input value={overrideUnassigned} onChange={(e)=> setOverrideUnassigned(e.target.value)} className="border rounded px-2 py-1" placeholder="0" />
-        </div>
-        <button className="btn-primary" onClick={() => mutate()}>{NI ? <NI.Refresh className="w-4 h-4 inline mr-1" /> : "↻"} Обновить</button>
-        {role === "DIRECTOR" && (
-          <>
-            <button className="btn-ghost" onClick={createBatch}>Создать пакет (черновик)</button>
-            <div className="flex items-end gap-2 ml-auto">
-              <div>
-                <label className="block text-xs text-gray-500">ID пакета</label>
-                <input value={batchId} onChange={(e) => setBatchId(e.target.value)} className="border rounded px-2 py-1" placeholder="ID пакета" />
+      <div className="card p-3">
+        <h1 className="text-xl font-bold text-white mb-4">Расчёт зарплат</h1>
+        <div className="flex flex-wrap items-end gap-2">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Начало</label>
+            <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="border rounded px-2 py-1 bg-gray-900 text-white border-gray-700" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Конец</label>
+            <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="border rounded px-2 py-1 bg-gray-900 text-white border-gray-700" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Общая недостача</label>
+            <input value={overrideUnassigned} onChange={(e)=> setOverrideUnassigned(e.target.value)} className="border rounded px-2 py-1 bg-gray-900 text-white border-gray-700" placeholder="0" />
+          </div>
+          <button className="btn-primary" onClick={() => mutate()}>{NI ? <NI.Refresh className="w-4 h-4 inline mr-1" /> : "↻"} Обновить</button>
+          {role === "DIRECTOR" && (
+            <>
+              <button className="btn-ghost" onClick={createBatch}>Создать пакет (черновик)</button>
+              <div className="flex items-end gap-2 ml-auto">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">ID пакета</label>
+                  <input value={batchId} onChange={(e) => setBatchId(e.target.value)} className="border rounded px-2 py-1 bg-gray-900 text-white border-gray-700" placeholder="ID пакета" />
+                </div>
+                <button className="btn-primary" onClick={finalizeBatch}>Утвердить пакет</button>
               </div>
-              <button className="btn-primary" onClick={finalizeBatch}>Утвердить пакет</button>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
       {role === "DIRECTOR" && data && data.length > 0 ? (
         <div className="card p-3">
@@ -253,11 +257,12 @@ export default function SalariesPage() {
       ) : null}
       <div className="card overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead><tr className="bg-gray-50 text-left"><th className="p-2">Сотрудник</th><th className="p-2">Часы</th><th className="p-2">Смены</th><th className="p-2">Начислено</th><th className="p-2">Долги</th><th className="p-2">Недостачи</th><th className="p-2">Штрафы</th><th className="p-2">Бонусы</th><th className="p-2">Кальяны</th><th className="p-2">Итого</th><th className="p-2">Расчётный лист</th></tr></thead>
+          <thead className="hidden lg:table-header-group"><tr className="bg-gray-50 text-left"><th className="p-2">Сотрудник</th><th className="p-2">Часы</th><th className="p-2">Смены</th><th className="p-2">Начислено</th><th className="p-2">Долги</th><th className="p-2">Недостачи</th><th className="p-2">Штрафы</th><th className="p-2">Бонусы</th><th className="p-2">Кальяны</th><th className="p-2">Итого</th><th className="p-2">Расчётный лист</th><th className="p-2">Выплатить</th></tr></thead>
           <tbody>
-            {isLoading && <tr><td className="p-3" colSpan={8}>Загрузка...</td></tr>}
+            {isLoading && <tr><td className="p-3" colSpan={12}>Загрузка...</td></tr>}
             {!isLoading && (data ?? []).map((r) => (
-              <tr key={r.employee.id} className="border-t">
+              <>
+              <tr key={r.employee.id} className="border-t hidden lg:table-row">
                 <td className="p-2">{r.employee.name}</td>
                 <td className="p-2">{Number(r.totalHours).toFixed(2)}</td>
                 <td className="p-2">{r.totalShifts}</td>
@@ -269,13 +274,180 @@ export default function SalariesPage() {
                 <td className="p-2">{Number(r.hookah || 0).toFixed(2)}</td>
                 <td className="p-2 font-medium">{Number(r.net).toFixed(2)}</td>
                 <td className="p-2"><button className="btn-ghost flex items-center gap-1" onClick={() => download(r)}>{NI ? <NI.Download className="w-4 h-4" /> : "⬇️"} Скачать</button></td>
+                <td className="p-2"><PaymentButton employeeId={r.employee.id} employeeName={r.employee.name} amount={Number(r.net)} periodStart={start} periodEnd={end} /></td>
               </tr>
+              {/* Mobile view */}
+              <tr key={`${r.employee.id}-mobile`} className="border-t lg:hidden">
+                <td className="p-3" colSpan={12}>
+                  <div className="space-y-3">
+                    <div className="font-medium text-white text-base">{r.employee.name}</div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="text-gray-400">Часы:</div>
+                      <div className="text-white">{Number(r.totalHours).toFixed(2)}</div>
+                      <div className="text-gray-400">Смены:</div>
+                      <div className="text-white">{r.totalShifts}</div>
+                      <div className="text-gray-400">Начислено:</div>
+                      <div className="text-white">{Number(r.gross).toFixed(2)} ₽</div>
+                      <div className="text-gray-400">Долги:</div>
+                      <div className="text-white">-{Number(r.debtAmount).toFixed(2)} ₽</div>
+                      <div className="text-gray-400">Недостачи:</div>
+                      <div className="text-white">-{Number(r.shortageAmt).toFixed(2)} ₽</div>
+                      <div className="text-gray-400">Штрафы:</div>
+                      <div className="text-white">-{Number(r.penalties || 0).toFixed(2)} ₽</div>
+                      <div className="text-gray-400">Бонусы:</div>
+                      <div className="text-white">+{Number(r.bonuses || 0).toFixed(2)} ₽</div>
+                      <div className="text-gray-400">Кальяны:</div>
+                      <div className="text-white">+{Number(r.hookah || 0).toFixed(2)} ₽</div>
+                      <div className="text-gray-400 font-medium">Итого:</div>
+                      <div className="text-white font-medium">{Number(r.net).toFixed(2)} ₽</div>
+                    </div>
+                    <div className="flex gap-2 pt-2 border-t" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+                      <button className="btn-ghost flex items-center gap-1 flex-1 justify-center" onClick={() => download(r)}>{NI ? <NI.Download className="w-4 h-4" /> : "⬇️"} Скачать</button>
+                      <div className="flex-1"><PaymentButton employeeId={r.employee.id} employeeName={r.employee.name} amount={Number(r.net)} periodStart={start} periodEnd={end} /></div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              </>
             ))}
           </tbody>
         </table>
       </div>
       <div className="text-right text-sm">Итого к выплате: <span className="font-medium">{totalNet.toFixed(2)} ₽</span></div>
     </div>
+  );
+}
+
+function PaymentButton({ employeeId, employeeName, amount, periodStart, periodEnd }: { employeeId: string; employeeName: string; amount: number; periodStart: string; periodEnd: string }) {
+  const [showModal, setShowModal] = useState(false);
+  const [status, setStatus] = useState<"PENDING" | "PAID" | "CANCELLED">("PENDING");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const NI = useNextIcons();
+  const { showSuccess } = useSuccess();
+  
+  const { data: employee } = useSWR(`/api/employees/${employeeId}`, fetcher);
+  
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append("employeeId", employeeId);
+      formData.append("amount", String(amount));
+      formData.append("periodStart", periodStart);
+      formData.append("periodEnd", periodEnd);
+      formData.append("status", status);
+      formData.append("notes", notes);
+      if (pdfFile) formData.append("pdf", pdfFile);
+      
+      const res = await fetch("/api/salary-payments", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!res.ok) throw new Error("Ошибка при сохранении");
+      
+      showSuccess("Выплата сохранена!");
+      setShowModal(false);
+      setPdfFile(null);
+      setNotes("");
+    } catch (error) {
+      alert("Ошибка при сохранении выплаты");
+    } finally {
+      setSaving(false);
+    }
+  };
+  
+  return (
+    <>
+      <button className="btn-primary text-sm w-full" onClick={() => setShowModal(true)}>
+        {NI ? <NI.CreditCard className="w-4 h-4 inline mr-1" /> : "💳"} Выплатить
+      </button>
+      
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0, 0, 0, 0.8)" }} onClick={() => setShowModal(false)}>
+          <div className="modal-panel max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-white">Выплата</h2>
+              <button className="text-white text-2xl hover:text-red-500 transition-colors" onClick={() => setShowModal(false)}>×</button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <div className="text-sm text-gray-400 mb-1">Сотрудник</div>
+                <div className="text-white font-medium">{employeeName}</div>
+              </div>
+              
+              {employee && (
+                <div className="bg-gray-900 p-3 rounded border border-gray-700">
+                  <div className="text-xs text-gray-400 mb-2">Платежные данные</div>
+                  {employee.paymentMethod === "SBP" && employee.phoneNumber && (
+                    <div className="text-white text-sm">СБП: {employee.phoneNumber}</div>
+                  )}
+                  {employee.paymentMethod === "BANK_CARD" && employee.cardNumber && (
+                    <div className="text-white text-sm">Карта: {employee.cardNumber}</div>
+                  )}
+                  {employee.bankName && (
+                    <div className="text-white text-sm">Банк: {employee.bankName}</div>
+                  )}
+                  {!employee.paymentMethod && (
+                    <div className="text-yellow-500 text-sm">⚠️ Платежные данные не указаны</div>
+                  )}
+                </div>
+              )}
+              
+              <div>
+                <div className="text-sm text-gray-400 mb-1">Сумма к выплате</div>
+                <div className="text-white text-2xl font-bold">{amount.toFixed(2)} ₽</div>
+              </div>
+              
+              <div>
+                <label className="block text-sm mb-2 text-white">Статус</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as any)}
+                  className="w-full border rounded px-3 py-2 bg-gray-900 text-white border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                >
+                  <option value="PENDING">В процессе</option>
+                  <option value="PAID">Выплачено</option>
+                  <option value="CANCELLED">Отменено</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm mb-2 text-white">PDF документ</label>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                  className="w-full border rounded px-3 py-2 bg-gray-900 text-white border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm mb-2 text-white">Заметки</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  className="w-full border rounded px-3 py-2 bg-gray-900 text-white border-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  placeholder="Дополнительная информация..."
+                />
+              </div>
+              
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full btn-primary flex items-center justify-center gap-2"
+              >
+                {NI ? <NI.Save className="w-4 h-4" /> : "💾"} {saving ? "Сохранение..." : "Сохранить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

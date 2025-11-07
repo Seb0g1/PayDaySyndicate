@@ -3,6 +3,7 @@ import useSWR from "swr";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useNextIcons } from "@/components/NI";
+import { useSuccess } from "@/components/SuccessProvider";
 
 type Employee = { id: string; name: string };
 type Product = { id: string; name: string; price: number; category?: string | null; categoryRef?: { id: string; name: string } | null };
@@ -14,6 +15,7 @@ const fetcher = (u: string) => fetch(u).then((r) => r.json());
 export default function DebtsPage() {
   const NI = useNextIcons();
   const { data: session } = useSession();
+  const { showSuccess } = useSuccess();
   const role = ((session as any)?.user as any)?.role as string | undefined;
   const isDirector = role === "DIRECTOR";
   const { data: me } = useSWR<any>("/api/me", fetcher);
@@ -29,30 +31,92 @@ export default function DebtsPage() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [q, setQ] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [filterByEmployee, setFilterByEmployee] = useState<string>(""); // Фильтр по сотруднику
 
   const employeeOptions = useMemo(() => {
     if (isDirector) return employees ?? [];
     return (employees ?? []).filter((e) => e.id === myEmployeeId);
   }, [employees, isDirector, myEmployeeId]);
 
+  const filteredProducts = useMemo(() => {
+    return (products ?? []).filter((p) => {
+      const byCat = categoryId ? p.categoryRef?.id === categoryId : true;
+      const byQ = q.trim() ? p.name.toLowerCase().includes(q.toLowerCase()) : true;
+      return byCat && byQ;
+    });
+  }, [products, categoryId, q]);
+
   useEffect(() => { if (!employeeId && employeeOptions?.[0]) setEmployeeId(employeeOptions[0].id); }, [employeeOptions]);
   useEffect(() => { if (!productId && products?.[0]) setProductId(products[0].id); }, [products]);
+  
+  // Reset productId when filters change if current product is not in filtered list
+  useEffect(() => {
+    if (filteredProducts.length > 0 && productId) {
+      const isCurrentProductInFiltered = filteredProducts.some(p => p.id === productId);
+      if (!isCurrentProductInFiltered) {
+        setProductId(filteredProducts[0].id);
+      }
+    }
+  }, [categoryId, q, filteredProducts, productId]);
 
   const add = async () => {
     await fetch("/api/debts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ employeeId, productId, quantity: Number(quantity), date }) });
+    showSuccess("Долг добавлен!");
     setQuantity("1");
     mutate();
   };
 
-  const filteredProducts = (products ?? []).filter((p) => {
-    const byCat = categoryId ? p.categoryRef?.id === categoryId : true;
-    const byQ = q.trim() ? p.name.toLowerCase().includes(q.toLowerCase()) : true;
-    return byCat && byQ;
-  });
+  // Фильтруем долги по выбранному сотруднику
+  const filteredDebts = useMemo(() => {
+    if (!filterByEmployee) return data ?? [];
+    return (data ?? []).filter(d => d.employeeId === filterByEmployee);
+  }, [data, filterByEmployee]);
+
+  // Подсчитываем общую сумму отфильтрованных долгов
+  const totalAmount = useMemo(() => {
+    return filteredDebts.reduce((sum, d) => sum + Number(d.amount), 0);
+  }, [filteredDebts]);
 
   return (
     <div className="space-y-4">
-      <div className="card p-3 grid grid-cols-6 gap-2">
+      {/* Кнопки для фильтрации по сотрудникам */}
+      {isDirector && (
+        <div className="card p-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-white font-semibold text-sm mr-2">Фильтр по сотруднику:</span>
+            <button 
+              onClick={() => setFilterByEmployee("")}
+              className={`px-2 sm:px-4 py-2 rounded border transition-all text-sm ${
+                filterByEmployee === "" 
+                  ? "bg-gradient-to-r from-red-500 to-red-600 text-white border-red-500" 
+                  : "border-gray-700 text-gray-300 hover:border-red-500/50"
+              }`}
+            >
+              Все
+            </button>
+            {(employees ?? []).map((emp) => (
+              <button
+                key={emp.id}
+                onClick={() => setFilterByEmployee(emp.id)}
+                className={`px-2 sm:px-4 py-2 rounded border transition-all text-sm ${
+                  filterByEmployee === emp.id
+                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white border-red-500"
+                    : "border-gray-700 text-gray-300 hover:border-red-500/50"
+                }`}
+              >
+                {emp.name}
+              </button>
+            ))}
+          </div>
+          {filterByEmployee && (
+            <div className="mt-3 text-white">
+              <strong>Общая сумма: {totalAmount.toFixed(2)} ₽</strong>
+            </div>
+          )}
+        </div>
+      )}
+      
+      <div className="card p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2">
         <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="border rounded px-2 py-1" disabled={!isDirector}>
           {employeeOptions.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
@@ -64,23 +128,42 @@ export default function DebtsPage() {
         <select value={productId} onChange={(e) => setProductId(e.target.value)} className="border rounded px-2 py-1">
           {filteredProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="border rounded px-2 py-1" />
+        <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="border rounded px-2 py-1" placeholder="Кол-во" />
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border rounded px-2 py-1" />
-        <button className="btn-primary flex items-center gap-1" onClick={add}>{NI ? <NI.Plus className="w-4 h-4" /> : "+"} Добавить</button>
+        <button className="btn-primary flex items-center justify-center gap-1" onClick={add}>{NI ? <NI.Plus className="w-4 h-4" /> : "+"} Добавить</button>
       </div>
       <div className="card overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead><tr className="bg-gray-50 text-left"><th className="p-2">Сотрудник</th><th className="p-2">Товар</th><th className="p-2">Кол-во</th><th className="p-2">Дата</th><th className="p-2">Сумма</th><th className="p-2"></th></tr></thead>
+          <thead className="hidden sm:table-header-group"><tr className="text-left border-b" style={{ borderColor: "rgba(255, 0, 0, 0.2)" }}><th className="p-3 text-white font-semibold">Сотрудник</th><th className="p-3 text-white font-semibold">Товар</th><th className="p-3 text-white font-semibold">Кол-во</th><th className="p-3 text-white font-semibold">Дата</th><th className="p-3 text-white font-semibold">Сумма</th><th className="p-3 text-white font-semibold"></th></tr></thead>
           <tbody>
-            {(data ?? []).map((d) => (
-              <tr key={d.id} className="border-t">
-                <td className="p-2">{d.employee.name}</td>
-                <td className="p-2">{d.product.name}</td>
-                <td className="p-2">{d.quantity}</td>
-                <td className="p-2">{new Date(d.date).toLocaleDateString()}</td>
-                <td className="p-2">{Number(d.amount).toFixed(2)}</td>
-                <td className="p-2 text-right"><button className="text-red-600 flex items-center gap-1" onClick={async () => { await fetch(`/api/debts/${d.id}`, { method: "DELETE" }); mutate(); }}>{NI ? <NI.Trash className="w-4 h-4" /> : "🗑️"} Удалить</button></td>
+            {filteredDebts.map((d) => (
+              <>
+              <tr key={d.id} className="border-b hidden sm:table-row" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+                <td className="p-3 text-white">{d.employee.name}</td>
+                <td className="p-3 text-gray-300">{d.product.name}</td>
+                <td className="p-3 text-gray-300">{d.quantity}</td>
+                <td className="p-3 text-gray-300">{new Date(d.date).toLocaleDateString("ru-RU")}</td>
+                <td className="p-3 text-gray-300">{Number(d.amount).toFixed(2)}</td>
+                <td className="p-3 text-right"><button className="text-red-500 flex items-center gap-1 hover:text-red-400" onClick={async () => { await fetch(`/api/debts/${d.id}`, { method: "DELETE" }); mutate(); }}>{NI ? <NI.Trash className="w-4 h-4" /> : "🗑️"} Удалить</button></td>
               </tr>
+              {/* Mobile view */}
+              <tr key={`${d.id}-mobile`} className="border-b sm:hidden" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+                <td className="p-3" colSpan={6}>
+                  <div className="space-y-2">
+                    <div className="font-medium text-white">{d.product.name}</div>
+                    <div className="space-y-1 text-xs text-gray-400">
+                      <div>👤 {d.employee.name}</div>
+                      <div>📊 {d.quantity} шт</div>
+                      <div>📅 {new Date(d.date).toLocaleDateString("ru-RU")}</div>
+                      <div>💰 {Number(d.amount).toFixed(2)} ₽</div>
+                    </div>
+                    <div className="pt-2 border-t" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+                      <button className="text-red-500 flex items-center gap-1 hover:text-red-400 w-full justify-center" onClick={async () => { await fetch(`/api/debts/${d.id}`, { method: "DELETE" }); mutate(); }}>{NI ? <NI.Trash className="w-4 h-4" /> : "🗑️"} Удалить</button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              </>
             ))}
           </tbody>
         </table>

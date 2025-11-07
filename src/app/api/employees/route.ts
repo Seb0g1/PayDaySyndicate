@@ -7,6 +7,7 @@ const employeeSchema = z.object({
   name: z.string().min(1),
   email: z.string().email().optional().or(z.literal("")).transform((v) => (v ? v : undefined)),
   phone: z.string().optional(),
+  telegramTag: z.string().optional(),
   hireDate: z.string(),
   payRate: z.number().positive(),
   payUnit: z.enum(["HOURLY", "DAILY"]).default("DAILY"),
@@ -42,12 +43,13 @@ export async function POST(req: Request) {
   const body = await req.json();
   const parsed = employeeSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { name, email, phone, hireDate, payRate, payUnit, role } = parsed.data;
+  const { name, email, phone, telegramTag, hireDate, payRate, payUnit, role } = parsed.data;
   const created = await prisma.employee.create({
     data: {
       name,
       email,
       phone,
+      telegramTag,
       hireDate: new Date(hireDate),
       payRate,
       payUnit,

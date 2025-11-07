@@ -21,7 +21,11 @@ model User {
   updatedAt     DateTime  @updatedAt
   accounts      Account[]
   sessions      Session[]
-  employee      Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  employee      Employee? @relation(fields: [employeeId], references: [id])
+  createdTasks  Task[]    @relation("TaskCreatedBy")
+  createdMemos  Memo[]    @relation("MemoCreatedBy")
+  createdLostItems LostItem[] @relation("LostItemCreatedBy")
+  retrievedLostItems LostItem[] @relation("LostItemRetrievedBy")
 }
 
 model Account {
@@ -59,21 +63,30 @@ model VerificationToken {
 }
 
 model Employee {
-  id          String       @id @default(cuid())
-  name        String
-  email       String?      @unique
-  phone       String?
-  hireDate    DateTime
-  payRate     Decimal      @db.Decimal(10, 2)
-  payUnit     PayRateUnit  @default(DAILY)
-  role        EmployeeRole @default(OTHER)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  debts       Debt[]
-  salaryLines SalaryLine[]
-  shifts      Shift[]
-  shortages   Shortage[]   @relation("ShortageAssignedTo")
-  user        User?
+  id            String          @id @default(cuid())
+  name          String
+  email         String?         @unique
+  phone         String?
+  telegramTag   String?         // Telegram @username
+  hireDate      DateTime
+  payRate       Decimal         @db.Decimal(10, 2)
+  payUnit       PayRateUnit     @default(DAILY)
+  role          EmployeeRole    @default(OTHER)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  debts         Debt[]
+  salaryLines   SalaryLine[]
+  shifts        Shift[]
+  shortages     Shortage[]      @relation("ShortageAssignedTo")
+  reports       Report[]
+  user          User?
+  tasks         Task[]          @relation("TaskAssignedTo")
+  // Платежные данные
+  paymentMethod PaymentMethod?
+  phoneNumber   String?         // Телефон для СБП
+  cardNumber    String?         // Номер банковской карты
+  bankName      String?         // Название банка
+  payments      SalaryPayment[]
 }
 
 model Shift {
@@ -89,34 +102,54 @@ model Shift {
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
   employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  penalties  ShiftPenalty[]
   bonuses    ShiftBonus[]
   hookahs    ShiftHookah[]
+  penalties  ShiftPenalty[]
+  reports    Report[]
 }
 
 model Product {
-  id        String   @id @default(cuid())
-  name      String
-  price     Decimal  @db.Decimal(10, 2)
-  stock     Int      @default(0)
-  category  String?
-  categoryId String?
-  categoryRef Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  id             String    @id @default(cuid())
+  name           String
+  price          Decimal   @db.Decimal(10, 2)
+  category       String?
+  subcategory    String?   // Подкатегория товара
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  categoryId     String?
+  stock          Int       @default(0)
+  langameId      Int?      @unique // ID товара из Langame API
+  isHidden       Boolean   @default(false) // Скрыт ли товар
   lastImportedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  debts     Debt[]
+  debts          Debt[]
+  categoryRef    Category? @relation(fields: [categoryId], references: [id])
+  orderInfo      ProductOrder?
+  
+  @@index([langameId])
+  @@index([isHidden])
+}
+
+model ProductOrder {
+  id              String   @id @default(cuid())
+  productId       String   @unique
+  officialName    String?  // Официальное наименование с сайта поставщика
+  quantityPerBox  Int?     // Количество в коробке (например, 12, 24)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 model Category {
   id        String     @id @default(cuid())
   name      String     @unique
   parentId  String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   parent    Category?  @relation("CategoryToChildren", fields: [parentId], references: [id])
   children  Category[] @relation("CategoryToChildren")
   products  Product[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
 }
 
 model Debt {
@@ -142,9 +175,14 @@ model Shortage {
   suggestedReplacement Json?
   resolved             Boolean   @default(false)
   assignedToEmployeeId String?
+  langameId            Int?      // ID товара из Langame API
+  category             String?  // Категория товара
+  subcategory          String?  // Подкатегория товара
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
-  assignedTo           Employee? @relation("ShortageAssignedTo", fields: [assignedToEmployeeId], references: [id], onDelete: SetNull)
+  assignedTo           Employee? @relation("ShortageAssignedTo", fields: [assignedToEmployeeId], references: [id])
+  
+  @@index([langameId])
 }
 
 model SalaryBatch {
@@ -196,16 +234,56 @@ model ShiftHookah {
   id        String   @id @default(cuid())
   shiftId   String
   qty       Int      @default(1)
-  amountPer Decimal  @db.Decimal(10, 2) @default(200)
+  amountPer Decimal  @default(200) @db.Decimal(10, 2)
   createdAt DateTime @default(now())
   shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
 }
 
+model Report {
+  id          String           @id @default(cuid())
+  type        ReportType
+  employeeId  String
+  shiftId     String?
+  data        Json?            // Специфичные данные отчета (JSON)
+  files       String[]         // Массив путей к файлам/изображениям
+  notes       String?          // Дополнительные заметки
+  amount      Decimal?         @db.Decimal(10, 2)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  employee    Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift       Shift?           @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  auditLogs   ReportAuditLog[]
+}
+
+model ReportAuditLog {
+  id         String   @id @default(cuid())
+  reportId   String
+  changedBy  String   // Имя пользователя, который внес изменение
+  userRole   String   // Роль пользователя
+  reason     String?  // Причина изменения (для администраторов)
+  oldData    Json?    // Старые данные
+  newData    Json?    // Новые данные
+  createdAt  DateTime @default(now())
+  report     Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
+
 enum UserRole {
-  DIRECTOR
-  SENIOR_ADMIN
   ADMIN
   EMPLOYEE
+  DIRECTOR
+  SENIOR_ADMIN
+}
+
+enum ReportType {
+  FINANCIAL              // Финансовые (чеки + экран монитора)
+  HOOKAH                 // Учёт кальянов
+  CORK_FEE               // Отчет по пробковому сбору
+  TABLE_STATUS           // Отчёты по состоянию столов
+  PROMOTION              // Учёт акций
+  PLAYSTATION            // Учёт PlayStation
+  VAT_INVOICE            // Накладные
 }
 
 enum EmployeeRole {
@@ -237,4 +315,189 @@ enum AttendanceStatus {
 enum SalaryBatchStatus {
   DRAFT
   FINALIZED
+}
+
+enum PaymentMethod {
+  SBP            // Система быстрых платежей
+  BANK_CARD      // Банковская карта
+}
+
+model InventoryCountHistory {
+  id        String   @id @default(cuid())
+  date      DateTime @default(now())
+  name      String   // Название пересчета (например "Пересчет января 2025")
+  data      Json     // JSON с данными о товарах и их количествах
+  status    String   @default("DRAFT") // DRAFT, SAVED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SalaryPayment {
+  id          String            @id @default(cuid())
+  employeeId  String
+  amount      Decimal           @db.Decimal(10, 2)
+  periodStart DateTime          // Начало периода выплаты
+  periodEnd   DateTime          // Конец периода выплаты
+  status      PaymentStatus     @default(PENDING)
+  pdfFile     String?           // Путь к PDF документу
+  notes       String?           // Заметки
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  employee    Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+enum PaymentStatus {
+  PENDING       // В процессе
+  PAID          // Выплачено
+  CANCELLED     // Отменено
+}
+
+model TelegramSettings {
+  id              String   @id @default(cuid())
+  botToken        String?  // Токен Telegram бота
+  chatId          String?  // ID группы/чата для отправки сообщений
+  enabled         Boolean  @default(false)
+  // ID топиков для разных типов отчетов
+  topicShift      String?  // Топик для отчетов по сменам
+  topicHookah     String?  // Топик для учета кальянов
+  topicCorkFee    String?  // Топик для пробкового сбора
+  topicPlayStation String? // Топик для PlayStation
+  topicInvoice    String?  // Топик для накладных
+  topicPromotion  String?  // Топик для акций
+  topicPenalty    String?  // Топик для штрафов
+  topicBonus      String?  // Топик для бонусов
+  topicPayment    String?  // Топик для выплат
+  topicSchedule   String?  // Топик для графика
+  topicTables     String?  // Топик для отчетов по столам
+  topicDebt       String?  // Топик для долгов
+  topicTasks      String?  // Топик для задач
+  topicChecklist  String?  // Топик для чек-листа
+  topicLostItems  String?  // Топик для забытых вещей
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([id])
+}
+
+model LangameSettings {
+  id                String   @id @default(cuid())
+  apiKey            String?  // API ключ для Langame
+  clubId           String?  // ID клуба
+  enabled           Boolean  @default(false)
+  baseUrl           String?  @default("https://api.langame.ru") // Базовый URL API
+  excludedProductIds Int[]   @default([]) // ID товаров, исключенных из синхронизации
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([id])
+}
+
+model PCMapping {
+  id              String   @id @default(cuid())
+  pcNumber        String   // Номер ПК (например, PC1, PS5)
+  langameId       Int?     // ID из Langame API (linking_pc_by_type)
+  name            String?  // Название ПК
+  packetsTypePC   Int?     // Тип пакетов ПК
+  fiscalName      String?  // Фискальное имя
+  uuid            String?  // UUID ПК
+  clubId          Int?     // ID клуба
+  isPS            Boolean  @default(false) // Это PS5?
+  releType        String?  // Тип реле
+  color           String?  // Цвет
+  pcTypeId        Int?     // ID типа ПК из Langame
+  pcTypeName      String?  // Название типа ПК
+  pcTypeNameEn    String?  // Название типа ПК (EN)
+  pcTypeColor     String?  // Цвет типа ПК
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([pcNumber])
+  @@index([langameId])
+  @@index([uuid])
+}
+
+model Task {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  assignedToId  String   // ID сотрудника, которому назначена задача
+  createdById   String   // ID пользователя, который создал задачу
+  status        TaskStatus @default(PENDING)
+  priority      TaskPriority @default(MEDIUM)
+  dueDate       DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  assignedTo    Employee @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: Cascade)
+  createdBy     User     @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([assignedToId])
+  @@index([createdById])
+  @@index([status])
+}
+
+enum TaskStatus {
+  PENDING       // Ожидает выполнения
+  IN_PROGRESS   // В процессе
+  COMPLETED     // Выполнено
+  CANCELLED     // Отменено
+}
+
+enum TaskPriority {
+  LOW           // Низкий
+  MEDIUM        // Средний
+  HIGH          // Высокий
+  URGENT        // Срочно
+}
+
+model Memo {
+  id            String   @id @default(cuid())
+  title         String
+  content       String   // HTML контент с оформлением
+  images        String[] // Массив путей к изображениям
+  createdById   String   // ID пользователя (Director), который создал памятку
+  isPublished   Boolean  @default(true) // Опубликована ли памятка
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     User     @relation("MemoCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([isPublished])
+  @@index([createdById])
+}
+
+model ChecklistItem {
+  id            String   @id @default(cuid())
+  text          String   // Текст пункта чек-листа
+  order         Int      // Порядок отображения
+  isActive      Boolean  @default(true) // Активен ли пункт
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([order])
+}
+
+model LostItem {
+  id            String   @id @default(cuid())
+  pcNumber      String?  // Номер ПК/PS5
+  guestPhone    String?  // Номер гостя
+  guestName     String?  // Имя гостя
+  photos        String[] // Массив путей к фотографиям
+  location      String?  // Местонахождение на момент написания заявки
+  status        LostItemStatus @default(LOST)
+  createdById   String   // ID пользователя, который создал запись
+  retrievedById String?  // ID пользователя, который отметил как забранное
+  retrievedAt   DateTime? // Дата когда забрали
+  telegramMessageId String? // ID сообщения в Telegram для удаления
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     User     @relation("LostItemCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  retrievedBy   User?    @relation("LostItemRetrievedBy", fields: [retrievedById], references: [id])
+
+  @@index([status])
+  @@index([createdById])
+}
+
+enum LostItemStatus {
+  LOST      // Забыто
+  RETRIEVED // Забрано
 }
