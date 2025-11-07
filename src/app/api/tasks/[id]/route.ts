@@ -73,7 +73,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     updateData.status = parsed.data.status;
     if (parsed.data.status === "COMPLETED") {
       updateData.completedAt = new Date();
-    } else if (parsed.data.status !== "COMPLETED" && task.completedAt) {
+    } else if (task.completedAt) {
       updateData.completedAt = null;
     }
   }

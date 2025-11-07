@@ -16,10 +16,11 @@ const updateProfileSchema = z.object({
 
 export async function GET() {
   const session = await getAuth();
-  if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
+  const userId = ((session as any)?.user as any)?.id;
+  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
   
   const user = await prisma.user.findUnique({
-    where: { id: (session.user as any).id },
+    where: { id: userId },
     include: { employee: true },
   });
   
@@ -36,7 +37,8 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   const session = await getAuth();
-  if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
+  const userId = ((session as any)?.user as any)?.id;
+  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
   
   const body = await req.json();
   const parsed = updateProfileSchema.safeParse(body);
@@ -55,12 +57,11 @@ export async function PATCH(req: Request) {
   }
   
   await prisma.user.update({
-    where: { id: (session.user as any).id },
+    where: { id: userId },
     data: userUpdates,
   });
   
   // Обновляем сотрудника, если есть employeeId
-  const userId = (session.user as any).id;
   const user = await prisma.user.findUnique({ where: { id: userId } });
   
   if (user?.employeeId) {

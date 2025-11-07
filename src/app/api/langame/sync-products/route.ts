@@ -152,7 +152,8 @@ export async function POST() {
         // Обновляем цену только если:
         // 1. Текущая цена = 0 (товар новый или цена не была установлена)
         // 2. И есть цена в API
-        if (existing.price === 0 && price !== undefined && price !== null && !isNaN(price) && price > 0) {
+        const currentPrice = Number(existing.price);
+        if (currentPrice === 0 && price !== undefined && price !== null && !isNaN(price) && price > 0) {
           updateData.price = price;
         }
         

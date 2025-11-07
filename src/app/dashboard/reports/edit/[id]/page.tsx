@@ -552,7 +552,7 @@ function CorkFeeReportFields(props: any) {
                 <button onClick={() => setPcModal(false)} className="text-white hover:text-red-500">✕</button>
               </div>
               <div className="grid grid-cols-5 gap-2">
-                {pcOptions.map(opt => (
+                {pcOptions.map((opt: string) => (
                   <button key={opt} onClick={() => { setPc(opt); setPcModal(false); }} className={`border rounded px-2 py-1 transition-all ${pc === opt ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-[0_0_12px_rgba(255,0,0,0.3)]" : "bg-gray-900 text-white border-gray-700 hover:border-red-500/50 hover:bg-red-500/10"}`}>{opt}</button>
                 ))}
               </div>
@@ -604,7 +604,7 @@ function PlayStationReportFields(props: any) {
                 <button onClick={() => setPcModal(false)} className="text-white hover:text-red-500">✕</button>
               </div>
               <div className="grid grid-cols-5 gap-2">
-                {pcOptions.map(opt => (
+                {pcOptions.map((opt: string) => (
                   <button key={opt} onClick={() => { setPc(opt); setPcModal(false); }} className={`border rounded px-2 py-1 transition-all ${pc === opt ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-[0_0_12px_rgba(255,0,0,0.3)]" : "bg-gray-900 text-white border-gray-700 hover:border-red-500/50 hover:bg-red-500/10"}`}>{opt}</button>
                 ))}
               </div>

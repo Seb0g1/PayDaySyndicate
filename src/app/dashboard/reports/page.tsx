@@ -731,7 +731,7 @@ function CorkFeeReportFields(props: any) {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded p-4 w-full max-w-md max-h-[400px] overflow-y-auto">
               <div className="grid grid-cols-5 gap-2">
-                {pcOptions.map(opt => (
+                {pcOptions.map((opt: string) => (
                   <button key={opt} onClick={() => { setPc(opt); setPcModal(false); }} className={`border rounded px-2 py-1 ${pc === opt ? "bg-blue-100" : ""}`}>{opt}</button>
                 ))}
               </div>
@@ -779,7 +779,7 @@ function PlayStationReportFields(props: any) {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded p-4 w-full max-w-md max-h-[400px] overflow-y-auto">
               <div className="grid grid-cols-5 gap-2">
-                {pcOptions.map(opt => (
+                {pcOptions.map((opt: string) => (
                   <button key={opt} onClick={() => { setPc(opt); setPcModal(false); }} className={`border rounded px-2 py-1 ${pc === opt ? "bg-blue-100" : ""}`}>{opt}</button>
                 ))}
               </div>

@@ -65,7 +65,7 @@ export async function POST(req: Request) {
         shiftType: shiftTypeMap[type] || type,
         role,
         topicId: settings.topicSchedule || undefined,
-        employeeTag: created.employee?.telegramTag,
+        employeeTag: created.employee?.telegramTag || undefined,
       });
     }
   } catch (error) {

@@ -44,7 +44,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         shiftDate: created.shift.date,
         amount: Number(parsed.data.amount),
         reason: parsed.data.reason,
-        topicId: settings.topicBonus,
+        topicId: settings.topicBonus || undefined,
       });
     }
   } catch (telegramError) {

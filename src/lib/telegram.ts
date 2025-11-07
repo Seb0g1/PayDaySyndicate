@@ -410,7 +410,7 @@ ${tagLine}
     }
   }
 
-  return textSent;
+  return textSent !== null && textSent !== undefined;
 }
 
 /**
@@ -469,7 +469,7 @@ ${nalFactLine}${discrepancyLine}
     }
   }
 
-  return textSent;
+  return textSent !== null && textSent !== undefined;
 }
 
 /**
@@ -515,7 +515,7 @@ ${shiftLine}
     }
   }
 
-  return textSent;
+  return textSent !== null && textSent !== undefined;
 }
 
 /**
@@ -561,7 +561,7 @@ ${shiftLine}
     }
   }
 
-  return textSent;
+  return textSent !== null && textSent !== undefined;
 }
 
 /**
@@ -617,7 +617,7 @@ ${promoLine}
     }
   }
 
-  return textSent;
+  return textSent !== null && textSent !== undefined;
 }
 
 /**
@@ -666,7 +666,7 @@ ${timeLine}
     }
   }
 
-  return textSent;
+  return textSent !== null && textSent !== undefined;
 }
 
 /**
@@ -718,7 +718,7 @@ ${descLine}
     }
   }
 
-  return textSent;
+  return textSent !== null && textSent !== undefined;
 }
 
 /**
@@ -949,7 +949,7 @@ ${adminLine} выдал задание администратору: ${options.e
 
 Задача: <b>${options.taskTitle}</b>${descriptionLine}
 
-${priorityLine}${dueDateLine ? `\nСрок выполнения: <b>${options.dueDate instanceof Date ? options.dueDate.toLocaleDateString('ru-RU') : new Date(options.dueDate).toLocaleDateString('ru-RU')}</b>` : ''}
+${priorityLine}${dueDateLine}
   `.trim();
 
   const messageId = await sendTelegramMessage({

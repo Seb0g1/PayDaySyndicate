@@ -7,7 +7,8 @@ import { notifyPayment } from "@/lib/telegram";
 
 export async function GET(req: Request) {
   const session = await getAuth();
-  if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
+  const userId = ((session as any)?.user as any)?.id;
+  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
   
   const { searchParams } = new URL(req.url);
   const employeeId = searchParams.get("employeeId");
@@ -38,7 +39,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await getAuth();
-  if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
+  const userId = ((session as any)?.user as any)?.id;
+  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
   
   const formData = await req.formData();
   const employeeId = formData.get("employeeId") as string;
@@ -87,8 +89,8 @@ export async function POST(req: Request) {
   try {
     const settings = await prisma.telegramSettings.findFirst();
     if (settings?.enabled && settings?.botToken) {
-      const user = (await getAuth()) as any;
-      const userName = user?.user?.name || "Администратор";
+      const userSession = await getAuth();
+      const userName = ((userSession as any)?.user as any)?.name || "Администратор";
       await notifyPayment({
         botToken: settings.botToken,
         chatId: settings.chatId || undefined,
@@ -99,7 +101,7 @@ export async function POST(req: Request) {
         periodStart: payment.periodStart,
         periodEnd: payment.periodEnd,
         status: payment.status,
-        topicId: settings.topicPayment,
+        topicId: settings.topicPayment || undefined,
       });
     }
   } catch (telegramError) {

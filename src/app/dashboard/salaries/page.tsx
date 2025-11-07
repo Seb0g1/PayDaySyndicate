@@ -451,53 +451,5 @@ function PaymentButton({ employeeId, employeeName, amount, periodStart, periodEn
   );
 }
 
-function Payslip(r: Row & { start: string; end: string }) {
-  const styles = StyleSheet.create({
-    page: { padding: 28, fontFamily: "Helvetica", position: "relative" },
-    header: { fontSize: 18, marginBottom: 12, fontWeight: 700 },
-    row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6, fontSize: 12 },
-    label: { width: 160 },
-    value: { flex: 1, textAlign: "right" },
-    hr: { height: 1, backgroundColor: "#e5e7eb", marginVertical: 8 },
-    stamp: { width: 120, position: "absolute", right: 24, bottom: 24, opacity: 0.85 },
-  });
-  const fmtDate = (s: string) => new Date(s).toLocaleDateString("ru-RU");
-  const fmt = (n: number) => n.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.header}>Расчётный лист</Text>
-        <View style={styles.row}><Text style={styles.label}>Сотрудник</Text><Text style={styles.value}>{r.employee.name}</Text></View>
-        <View style={styles.row}><Text style={styles.label}>Период</Text><Text style={styles.value}>{fmtDate(r.start)} — {fmtDate(r.end)}</Text></View>
-        <View style={styles.hr} />
-        <View style={styles.row}><Text style={styles.label}>Часы</Text><Text style={styles.value}>{fmt(r.totalHours)}</Text></View>
-        <View style={styles.row}><Text style={styles.label}>Смены</Text><Text style={styles.value}>{r.totalShifts}</Text></View>
-        <View style={styles.hr} />
-        <View style={styles.row}><Text style={styles.label}>Начислено</Text><Text style={styles.value}>{fmt(Number(r.gross))} ₽</Text></View>
-        <View style={styles.row}><Text style={styles.label}>Долги</Text><Text style={styles.value}>−{fmt(Number(r.debtAmount))} ₽</Text></View>
-        <View style={styles.row}><Text style={styles.label}>Недостачи</Text><Text style={styles.value}>−{fmt(Number(r.shortageAmt))} ₽</Text></View>
-        {Array.isArray((r as any).penaltiesList) && (r as any).penaltiesList.length > 0 ? (
-          <>
-            <Text style={{ fontSize: 12, marginTop: 6, fontWeight: 700 }}>Штрафы — детали</Text>
-            {(r as any).penaltiesList.map((p: any, i: number) => (
-              <Text key={i} style={{ fontSize: 11, marginBottom: 2 }}>−{fmt(Number(p.amount))} ₽ — {p.reason}</Text>
-            ))}
-          </>
-        ) : null}
-        {Array.isArray((r as any).bonusesList) && (r as any).bonusesList.length > 0 ? (
-          <>
-            <Text style={{ fontSize: 12, marginTop: 6, fontWeight: 700 }}>Бонусы — детали</Text>
-            {(r as any).bonusesList.map((b: any, i: number) => (
-              <Text key={i} style={{ fontSize: 11, marginBottom: 2 }}>+{fmt(Number(b.amount))} ₽ — {b.reason}</Text>
-            ))}
-          </>
-        ) : null}
-        <View style={styles.hr} />
-        <View style={styles.row}><Text style={styles.label}>Итого к выплате</Text><Text style={styles.value}>{fmt(Number(r.net))} ₽</Text></View>
-        <Image src="/pechat.png" style={styles.stamp} />
-      </Page>
-    </Document>
-  );
-}
 
 

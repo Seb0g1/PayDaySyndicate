@@ -4,8 +4,9 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await getAuth();
-  if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
-  const user = await prisma.user.findUnique({ where: { id: (session.user as any).id }, include: { employee: true } });
+  const userId = ((session as any)?.user as any)?.id;
+  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { employee: true } });
   return NextResponse.json({ id: user?.id, role: user?.role, employeeId: user?.employeeId, employee: user?.employee });
 }
 
