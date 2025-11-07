@@ -129,15 +129,20 @@ openssl rand -base64 32
 ## Шаг 8: Настройка базы данных
 
 ```bash
-# Генерация Prisma клиента
+# Генерация Prisma клиента (ОБЯЗАТЕЛЬНО перед сборкой!)
 npx prisma generate
 
 # Применение миграций
 npx prisma migrate deploy
 
+# Проверка, что Prisma Client сгенерирован
+ls -la src/generated/prisma/client.ts
+
 # (Опционально) Заполнение начальными данными, если есть скрипты
 # npm run seed
 ```
+
+**Важно:** Prisma Client должен быть сгенерирован перед сборкой проекта (`npm run build`), иначе возникнет ошибка компиляции TypeScript.
 
 ## Шаг 9: Сборка приложения
 

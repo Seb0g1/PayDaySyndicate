@@ -2,9 +2,11 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { hash } from "bcryptjs";
 import { config } from "dotenv";
 import { join } from "path";
+import { resolve } from "path";
 
 // Загружаем переменные окружения
-config({ path: join(process.cwd(), ".env") });
+const envPath = resolve(process.cwd(), ".env");
+config({ path: envPath });
 
 const prisma = new PrismaClient();
 
