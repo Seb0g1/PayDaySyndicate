@@ -385,32 +385,44 @@ ${tagLine}
 Добавил в отчёт пробковый сбор!${categoryLine}${pcLine}${amountLine}
   `.trim();
 
-  // Сначала отправляем текстовое сообщение
-  const messageId = await sendTelegramMessage({
-    message,
-    botToken: options.botToken,
-    chatId: options.chatId,
-    topicId: options.topicId,
-  });
-  const textSent = messageId !== null;
+  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  if (options.photoUrls && options.photoUrls.length > 0) {
+    // Отправляем первую фотографию с текстом
+    const firstPhotoSent = await sendTelegramPhoto({
+      photoUrl: options.photoUrls[0],
+      caption: message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
 
-  // Если есть фотографии, отправляем их
-  if (textSent && options.photoUrls && options.photoUrls.length > 0) {
-    for (const photoUrl of options.photoUrls) {
-      try {
-        await sendTelegramPhoto({
-          photoUrl,
-          botToken: options.botToken,
-          chatId: options.chatId,
-          topicId: options.topicId,
-        });
-      } catch (error) {
-        console.error("Error sending photo:", error);
+    // Отправляем остальные фотографии без текста
+    if (firstPhotoSent && options.photoUrls.length > 1) {
+      for (let i = 1; i < options.photoUrls.length; i++) {
+        try {
+          await sendTelegramPhoto({
+            photoUrl: options.photoUrls[i],
+            botToken: options.botToken,
+            chatId: options.chatId,
+            topicId: options.topicId,
+          });
+        } catch (error) {
+          console.error("Error sending photo:", error);
+        }
       }
     }
-  }
 
-  return textSent !== null && textSent !== undefined;
+    return firstPhotoSent;
+  } else {
+    // Если фотографий нет, отправляем только текстовое сообщение
+    const messageId = await sendTelegramMessage({
+      message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
+    return messageId !== null;
+  }
 }
 
 /**
@@ -444,32 +456,44 @@ ${nalLangameLine}
 ${nalFactLine}${discrepancyLine}
   `.trim();
 
-  // Сначала отправляем текстовое сообщение
-  const messageId = await sendTelegramMessage({
-    message,
-    botToken: options.botToken,
-    chatId: options.chatId,
-    topicId: options.topicId,
-  });
-  const textSent = messageId !== null;
+  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  if (options.photoUrls && options.photoUrls.length > 0) {
+    // Отправляем первую фотографию с текстом
+    const firstPhotoSent = await sendTelegramPhoto({
+      photoUrl: options.photoUrls[0],
+      caption: message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
 
-  // Если есть фотографии, отправляем их
-  if (textSent && options.photoUrls && options.photoUrls.length > 0) {
-    for (const photoUrl of options.photoUrls) {
-      try {
-        await sendTelegramPhoto({
-          photoUrl,
-          botToken: options.botToken,
-          chatId: options.chatId,
-          topicId: options.topicId,
-        });
-      } catch (error) {
-        console.error("Error sending photo:", error);
+    // Отправляем остальные фотографии без текста
+    if (firstPhotoSent && options.photoUrls.length > 1) {
+      for (let i = 1; i < options.photoUrls.length; i++) {
+        try {
+          await sendTelegramPhoto({
+            photoUrl: options.photoUrls[i],
+            botToken: options.botToken,
+            chatId: options.chatId,
+            topicId: options.topicId,
+          });
+        } catch (error) {
+          console.error("Error sending photo:", error);
+        }
       }
     }
-  }
 
-  return textSent !== null && textSent !== undefined;
+    return firstPhotoSent;
+  } else {
+    // Если фотографий нет, отправляем только текстовое сообщение
+    const messageId = await sendTelegramMessage({
+      message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
+    return messageId !== null;
+  }
 }
 
 /**
@@ -493,29 +517,44 @@ ${adminLine} добавил отчёт о кальяне себе в смену.
 ${shiftLine}
   `.trim();
 
-  const textSent = await sendTelegramMessage({
-    message,
-    botToken: options.botToken,
-    chatId: options.chatId,
-    topicId: options.topicId,
-  });
+  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  if (options.photoUrls && options.photoUrls.length > 0) {
+    // Отправляем первую фотографию с текстом
+    const firstPhotoSent = await sendTelegramPhoto({
+      photoUrl: options.photoUrls[0],
+      caption: message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
 
-  if (textSent && options.photoUrls && options.photoUrls.length > 0) {
-    for (const photoUrl of options.photoUrls) {
-      try {
-        await sendTelegramPhoto({
-          photoUrl,
-          botToken: options.botToken,
-          chatId: options.chatId,
-          topicId: options.topicId,
-        });
-      } catch (error) {
-        console.error("Error sending photo:", error);
+    // Отправляем остальные фотографии без текста
+    if (firstPhotoSent && options.photoUrls.length > 1) {
+      for (let i = 1; i < options.photoUrls.length; i++) {
+        try {
+          await sendTelegramPhoto({
+            photoUrl: options.photoUrls[i],
+            botToken: options.botToken,
+            chatId: options.chatId,
+            topicId: options.topicId,
+          });
+        } catch (error) {
+          console.error("Error sending photo:", error);
+        }
       }
     }
-  }
 
-  return textSent !== null && textSent !== undefined;
+    return firstPhotoSent;
+  } else {
+    // Если фотографий нет, отправляем только текстовое сообщение
+    const messageId = await sendTelegramMessage({
+      message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
+    return messageId !== null;
+  }
 }
 
 /**
@@ -539,29 +578,44 @@ ${adminLine} добавил отчёт о СТОЛАХ себе в смену.
 ${shiftLine}
   `.trim();
 
-  const textSent = await sendTelegramMessage({
-    message,
-    botToken: options.botToken,
-    chatId: options.chatId,
-    topicId: options.topicId,
-  });
+  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  if (options.photoUrls && options.photoUrls.length > 0) {
+    // Отправляем первую фотографию с текстом
+    const firstPhotoSent = await sendTelegramPhoto({
+      photoUrl: options.photoUrls[0],
+      caption: message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
 
-  if (textSent && options.photoUrls && options.photoUrls.length > 0) {
-    for (const photoUrl of options.photoUrls) {
-      try {
-        await sendTelegramPhoto({
-          photoUrl,
-          botToken: options.botToken,
-          chatId: options.chatId,
-          topicId: options.topicId,
-        });
-      } catch (error) {
-        console.error("Error sending photo:", error);
+    // Отправляем остальные фотографии без текста
+    if (firstPhotoSent && options.photoUrls.length > 1) {
+      for (let i = 1; i < options.photoUrls.length; i++) {
+        try {
+          await sendTelegramPhoto({
+            photoUrl: options.photoUrls[i],
+            botToken: options.botToken,
+            chatId: options.chatId,
+            topicId: options.topicId,
+          });
+        } catch (error) {
+          console.error("Error sending photo:", error);
+        }
       }
     }
-  }
 
-  return textSent !== null && textSent !== undefined;
+    return firstPhotoSent;
+  } else {
+    // Если фотографий нет, отправляем только текстовое сообщение
+    const messageId = await sendTelegramMessage({
+      message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
+    return messageId !== null;
+  }
 }
 
 /**
@@ -595,29 +649,44 @@ ${nameLine}
 ${promoLine}
   `.trim();
 
-  const textSent = await sendTelegramMessage({
-    message,
-    botToken: options.botToken,
-    chatId: options.chatId,
-    topicId: options.topicId,
-  });
+  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  if (options.photoUrls && options.photoUrls.length > 0) {
+    // Отправляем первую фотографию с текстом
+    const firstPhotoSent = await sendTelegramPhoto({
+      photoUrl: options.photoUrls[0],
+      caption: message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
 
-  if (textSent && options.photoUrls && options.photoUrls.length > 0) {
-    for (const photoUrl of options.photoUrls) {
-      try {
-        await sendTelegramPhoto({
-          photoUrl,
-          botToken: options.botToken,
-          chatId: options.chatId,
-          topicId: options.topicId,
-        });
-      } catch (error) {
-        console.error("Error sending photo:", error);
+    // Отправляем остальные фотографии без текста
+    if (firstPhotoSent && options.photoUrls.length > 1) {
+      for (let i = 1; i < options.photoUrls.length; i++) {
+        try {
+          await sendTelegramPhoto({
+            photoUrl: options.photoUrls[i],
+            botToken: options.botToken,
+            chatId: options.chatId,
+            topicId: options.topicId,
+          });
+        } catch (error) {
+          console.error("Error sending photo:", error);
+        }
       }
     }
-  }
 
-  return textSent !== null && textSent !== undefined;
+    return firstPhotoSent;
+  } else {
+    // Если фотографий нет, отправляем только текстовое сообщение
+    const messageId = await sendTelegramMessage({
+      message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
+    return messageId !== null;
+  }
 }
 
 /**
@@ -644,29 +713,44 @@ ${shiftLine}
 ${timeLine}
   `.trim();
 
-  const textSent = await sendTelegramMessage({
-    message,
-    botToken: options.botToken,
-    chatId: options.chatId,
-    topicId: options.topicId,
-  });
+  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  if (options.photoUrls && options.photoUrls.length > 0) {
+    // Отправляем первую фотографию с текстом
+    const firstPhotoSent = await sendTelegramPhoto({
+      photoUrl: options.photoUrls[0],
+      caption: message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
 
-  if (textSent && options.photoUrls && options.photoUrls.length > 0) {
-    for (const photoUrl of options.photoUrls) {
-      try {
-        await sendTelegramPhoto({
-          photoUrl,
-          botToken: options.botToken,
-          chatId: options.chatId,
-          topicId: options.topicId,
-        });
-      } catch (error) {
-        console.error("Error sending photo:", error);
+    // Отправляем остальные фотографии без текста
+    if (firstPhotoSent && options.photoUrls.length > 1) {
+      for (let i = 1; i < options.photoUrls.length; i++) {
+        try {
+          await sendTelegramPhoto({
+            photoUrl: options.photoUrls[i],
+            botToken: options.botToken,
+            chatId: options.chatId,
+            topicId: options.topicId,
+          });
+        } catch (error) {
+          console.error("Error sending photo:", error);
+        }
       }
     }
-  }
 
-  return textSent !== null && textSent !== undefined;
+    return firstPhotoSent;
+  } else {
+    // Если фотографий нет, отправляем только текстовое сообщение
+    const messageId = await sendTelegramMessage({
+      message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
+    return messageId !== null;
+  }
 }
 
 /**
@@ -696,29 +780,44 @@ ${monthLine}
 ${descLine}
   `.trim();
 
-  const textSent = await sendTelegramMessage({
-    message,
-    botToken: options.botToken,
-    chatId: options.chatId,
-    topicId: options.topicId,
-  });
+  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  if (options.photoUrls && options.photoUrls.length > 0) {
+    // Отправляем первую фотографию с текстом
+    const firstPhotoSent = await sendTelegramPhoto({
+      photoUrl: options.photoUrls[0],
+      caption: message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
 
-  if (textSent && options.photoUrls && options.photoUrls.length > 0) {
-    for (const photoUrl of options.photoUrls) {
-      try {
-        await sendTelegramPhoto({
-          photoUrl,
-          botToken: options.botToken,
-          chatId: options.chatId,
-          topicId: options.topicId,
-        });
-      } catch (error) {
-        console.error("Error sending photo:", error);
+    // Отправляем остальные фотографии без текста
+    if (firstPhotoSent && options.photoUrls.length > 1) {
+      for (let i = 1; i < options.photoUrls.length; i++) {
+        try {
+          await sendTelegramPhoto({
+            photoUrl: options.photoUrls[i],
+            botToken: options.botToken,
+            chatId: options.chatId,
+            topicId: options.topicId,
+          });
+        } catch (error) {
+          console.error("Error sending photo:", error);
+        }
       }
     }
-  }
 
-  return textSent !== null && textSent !== undefined;
+    return firstPhotoSent;
+  } else {
+    // Если фотографий нет, отправляем только текстовое сообщение
+    const messageId = await sendTelegramMessage({
+      message,
+      botToken: options.botToken,
+      chatId: options.chatId,
+      topicId: options.topicId,
+    });
+    return messageId !== null;
+  }
 }
 
 /**
