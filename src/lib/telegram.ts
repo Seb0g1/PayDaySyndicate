@@ -194,6 +194,136 @@ export async function editTelegramMessage(options: {
  * Отправляет фотографию в Telegram через Bot API
  * Поддерживает как URL, так и локальные файлы
  */
+/**
+ * Отправляет несколько фотографий в одном сообщении (media group)
+ */
+export async function sendTelegramMediaGroup(options: {
+  photoUrls: string[];
+  caption?: string;
+  botToken: string;
+  chatId?: string;
+  topicId?: string;
+}): Promise<boolean> {
+  try {
+    const { photoUrls, caption, botToken, chatId, topicId } = options;
+
+    if (!botToken) {
+      console.error("Bot token is required");
+      return false;
+    }
+
+    if (!photoUrls || photoUrls.length === 0) {
+      console.error("Photo URLs are required");
+      return false;
+    }
+
+    // Определяем chat_id
+    let targetChatId = chatId;
+    let threadId = null;
+    
+    if (topicId && topicId.includes('_')) {
+      const [chatIdFromTopic, threadIdFromTopic] = topicId.split('_');
+      targetChatId = chatIdFromTopic;
+      threadId = parseInt(threadIdFromTopic);
+    } else if (topicId) {
+      threadId = parseInt(topicId);
+    }
+    
+    if (!targetChatId) {
+      console.error("Chat ID is required");
+      return false;
+    }
+
+    const url = `https://api.telegram.org/bot${botToken}/sendMediaGroup`;
+    const fs = require('fs');
+    const path = require('path');
+
+    // Подготавливаем медиа-группу
+    const media: any[] = [];
+    const formData = new FormDataNode();
+
+    for (let i = 0; i < photoUrls.length; i++) {
+      const photoUrl = photoUrls[i];
+      
+      if (photoUrl.startsWith('/uploads/')) {
+        // Локальный файл
+        const fullPath = path.join(process.cwd(), 'public', photoUrl);
+        
+        if (fs.existsSync(fullPath)) {
+          const fileBuffer = fs.readFileSync(fullPath);
+          const fileName = path.basename(fullPath);
+          
+          // Добавляем файл в form-data
+          formData.append(`photo${i}`, fileBuffer, {
+            filename: fileName,
+            contentType: 'image/jpeg',
+          });
+          
+          // Добавляем в медиа-группу
+          const mediaItem: any = {
+            type: 'photo',
+            media: `attach://photo${i}`,
+          };
+          
+          // Текст добавляем только к первой фотографии
+          if (i === 0 && caption) {
+            mediaItem.caption = caption;
+            mediaItem.parse_mode = 'HTML';
+          }
+          
+          media.push(mediaItem);
+        } else {
+          console.error("Photo file not found:", fullPath);
+          return false;
+        }
+      } else {
+        // Внешний URL
+        const mediaItem: any = {
+          type: 'photo',
+          media: photoUrl,
+        };
+        
+        // Текст добавляем только к первой фотографии
+        if (i === 0 && caption) {
+          mediaItem.caption = caption;
+          mediaItem.parse_mode = 'HTML';
+        }
+        
+        media.push(mediaItem);
+      }
+    }
+
+    // Добавляем chat_id и media в form-data
+    formData.append('chat_id', targetChatId);
+    formData.append('media', JSON.stringify(media));
+    
+    if (threadId) {
+      formData.append('message_thread_id', threadId.toString());
+    }
+
+    const headers = formData.getHeaders();
+    
+    try {
+      const response = await axios.post(url, formData, {
+        headers: headers,
+      });
+      
+      console.log("Media group sent successfully:", response.status);
+      return true;
+    } catch (axiosError: any) {
+      if (axiosError.response) {
+        console.error("Telegram MediaGroup API error:", axiosError.response.status, axiosError.response.data);
+      } else {
+        console.error("Telegram MediaGroup API error:", axiosError.message);
+      }
+      return false;
+    }
+  } catch (error) {
+    console.error("Error sending Telegram media group:", error);
+    return false;
+  }
+}
+
 export async function sendTelegramPhoto(options: {
   photoUrl: string;
   caption?: string;
@@ -385,34 +515,16 @@ ${tagLine}
 Добавил в отчёт пробковый сбор!${categoryLine}${pcLine}${amountLine}
   `.trim();
 
-  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  // Если есть фотографии, отправляем все в одном сообщении (media group)
   if (options.photoUrls && options.photoUrls.length > 0) {
-    // Отправляем первую фотографию с текстом
-    const firstPhotoSent = await sendTelegramPhoto({
-      photoUrl: options.photoUrls[0],
+    // Отправляем все фотографии в одном сообщении с текстом
+    return await sendTelegramMediaGroup({
+      photoUrls: options.photoUrls,
       caption: message,
       botToken: options.botToken,
       chatId: options.chatId,
       topicId: options.topicId,
     });
-
-    // Отправляем остальные фотографии без текста
-    if (firstPhotoSent && options.photoUrls.length > 1) {
-      for (let i = 1; i < options.photoUrls.length; i++) {
-        try {
-          await sendTelegramPhoto({
-            photoUrl: options.photoUrls[i],
-            botToken: options.botToken,
-            chatId: options.chatId,
-            topicId: options.topicId,
-          });
-        } catch (error) {
-          console.error("Error sending photo:", error);
-        }
-      }
-    }
-
-    return firstPhotoSent;
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
@@ -456,34 +568,16 @@ ${nalLangameLine}
 ${nalFactLine}${discrepancyLine}
   `.trim();
 
-  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  // Если есть фотографии, отправляем все в одном сообщении (media group)
   if (options.photoUrls && options.photoUrls.length > 0) {
-    // Отправляем первую фотографию с текстом
-    const firstPhotoSent = await sendTelegramPhoto({
-      photoUrl: options.photoUrls[0],
+    // Отправляем все фотографии в одном сообщении с текстом
+    return await sendTelegramMediaGroup({
+      photoUrls: options.photoUrls,
       caption: message,
       botToken: options.botToken,
       chatId: options.chatId,
       topicId: options.topicId,
     });
-
-    // Отправляем остальные фотографии без текста
-    if (firstPhotoSent && options.photoUrls.length > 1) {
-      for (let i = 1; i < options.photoUrls.length; i++) {
-        try {
-          await sendTelegramPhoto({
-            photoUrl: options.photoUrls[i],
-            botToken: options.botToken,
-            chatId: options.chatId,
-            topicId: options.topicId,
-          });
-        } catch (error) {
-          console.error("Error sending photo:", error);
-        }
-      }
-    }
-
-    return firstPhotoSent;
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
@@ -517,34 +611,16 @@ ${adminLine} добавил отчёт о кальяне себе в смену.
 ${shiftLine}
   `.trim();
 
-  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  // Если есть фотографии, отправляем все в одном сообщении (media group)
   if (options.photoUrls && options.photoUrls.length > 0) {
-    // Отправляем первую фотографию с текстом
-    const firstPhotoSent = await sendTelegramPhoto({
-      photoUrl: options.photoUrls[0],
+    // Отправляем все фотографии в одном сообщении с текстом
+    return await sendTelegramMediaGroup({
+      photoUrls: options.photoUrls,
       caption: message,
       botToken: options.botToken,
       chatId: options.chatId,
       topicId: options.topicId,
     });
-
-    // Отправляем остальные фотографии без текста
-    if (firstPhotoSent && options.photoUrls.length > 1) {
-      for (let i = 1; i < options.photoUrls.length; i++) {
-        try {
-          await sendTelegramPhoto({
-            photoUrl: options.photoUrls[i],
-            botToken: options.botToken,
-            chatId: options.chatId,
-            topicId: options.topicId,
-          });
-        } catch (error) {
-          console.error("Error sending photo:", error);
-        }
-      }
-    }
-
-    return firstPhotoSent;
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
@@ -578,34 +654,16 @@ ${adminLine} добавил отчёт о СТОЛАХ себе в смену.
 ${shiftLine}
   `.trim();
 
-  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  // Если есть фотографии, отправляем все в одном сообщении (media group)
   if (options.photoUrls && options.photoUrls.length > 0) {
-    // Отправляем первую фотографию с текстом
-    const firstPhotoSent = await sendTelegramPhoto({
-      photoUrl: options.photoUrls[0],
+    // Отправляем все фотографии в одном сообщении с текстом
+    return await sendTelegramMediaGroup({
+      photoUrls: options.photoUrls,
       caption: message,
       botToken: options.botToken,
       chatId: options.chatId,
       topicId: options.topicId,
     });
-
-    // Отправляем остальные фотографии без текста
-    if (firstPhotoSent && options.photoUrls.length > 1) {
-      for (let i = 1; i < options.photoUrls.length; i++) {
-        try {
-          await sendTelegramPhoto({
-            photoUrl: options.photoUrls[i],
-            botToken: options.botToken,
-            chatId: options.chatId,
-            topicId: options.topicId,
-          });
-        } catch (error) {
-          console.error("Error sending photo:", error);
-        }
-      }
-    }
-
-    return firstPhotoSent;
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
@@ -649,34 +707,16 @@ ${nameLine}
 ${promoLine}
   `.trim();
 
-  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  // Если есть фотографии, отправляем все в одном сообщении (media group)
   if (options.photoUrls && options.photoUrls.length > 0) {
-    // Отправляем первую фотографию с текстом
-    const firstPhotoSent = await sendTelegramPhoto({
-      photoUrl: options.photoUrls[0],
+    // Отправляем все фотографии в одном сообщении с текстом
+    return await sendTelegramMediaGroup({
+      photoUrls: options.photoUrls,
       caption: message,
       botToken: options.botToken,
       chatId: options.chatId,
       topicId: options.topicId,
     });
-
-    // Отправляем остальные фотографии без текста
-    if (firstPhotoSent && options.photoUrls.length > 1) {
-      for (let i = 1; i < options.photoUrls.length; i++) {
-        try {
-          await sendTelegramPhoto({
-            photoUrl: options.photoUrls[i],
-            botToken: options.botToken,
-            chatId: options.chatId,
-            topicId: options.topicId,
-          });
-        } catch (error) {
-          console.error("Error sending photo:", error);
-        }
-      }
-    }
-
-    return firstPhotoSent;
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
@@ -713,34 +753,16 @@ ${shiftLine}
 ${timeLine}
   `.trim();
 
-  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  // Если есть фотографии, отправляем все в одном сообщении (media group)
   if (options.photoUrls && options.photoUrls.length > 0) {
-    // Отправляем первую фотографию с текстом
-    const firstPhotoSent = await sendTelegramPhoto({
-      photoUrl: options.photoUrls[0],
+    // Отправляем все фотографии в одном сообщении с текстом
+    return await sendTelegramMediaGroup({
+      photoUrls: options.photoUrls,
       caption: message,
       botToken: options.botToken,
       chatId: options.chatId,
       topicId: options.topicId,
     });
-
-    // Отправляем остальные фотографии без текста
-    if (firstPhotoSent && options.photoUrls.length > 1) {
-      for (let i = 1; i < options.photoUrls.length; i++) {
-        try {
-          await sendTelegramPhoto({
-            photoUrl: options.photoUrls[i],
-            botToken: options.botToken,
-            chatId: options.chatId,
-            topicId: options.topicId,
-          });
-        } catch (error) {
-          console.error("Error sending photo:", error);
-        }
-      }
-    }
-
-    return firstPhotoSent;
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
@@ -780,34 +802,16 @@ ${monthLine}
 ${descLine}
   `.trim();
 
-  // Если есть фотографии, отправляем первую с текстом как caption, остальные отдельно
+  // Если есть фотографии, отправляем все в одном сообщении (media group)
   if (options.photoUrls && options.photoUrls.length > 0) {
-    // Отправляем первую фотографию с текстом
-    const firstPhotoSent = await sendTelegramPhoto({
-      photoUrl: options.photoUrls[0],
+    // Отправляем все фотографии в одном сообщении с текстом
+    return await sendTelegramMediaGroup({
+      photoUrls: options.photoUrls,
       caption: message,
       botToken: options.botToken,
       chatId: options.chatId,
       topicId: options.topicId,
     });
-
-    // Отправляем остальные фотографии без текста
-    if (firstPhotoSent && options.photoUrls.length > 1) {
-      for (let i = 1; i < options.photoUrls.length; i++) {
-        try {
-          await sendTelegramPhoto({
-            photoUrl: options.photoUrls[i],
-            botToken: options.botToken,
-            chatId: options.chatId,
-            topicId: options.topicId,
-          });
-        } catch (error) {
-          console.error("Error sending photo:", error);
-        }
-      }
-    }
-
-    return firstPhotoSent;
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
