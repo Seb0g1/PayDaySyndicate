@@ -94,13 +94,17 @@ psql
 nano .env
 # Проверьте DATABASE_URL
 
-# 4. ГЕНЕРАЦИЯ PRISMA CLIENT (критично!)
+# 4. ГЕНЕРАЦИЯ PRISMA CLIENT (критично! ОБЯЗАТЕЛЬНО перед сборкой!)
 npx prisma generate
 
-# 5. Примените миграции
+# 5. Проверьте, что Prisma Client сгенерирован
+ls -la src/generated/prisma/
+# Должны быть файлы, включая модели для всех таблиц
+
+# 6. Примените миграции
 npx prisma migrate deploy
 
-# 6. Соберите проект
+# 7. Соберите проект
 npm run build
 
 # 7. Запустите
