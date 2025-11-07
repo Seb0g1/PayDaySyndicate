@@ -3,15 +3,16 @@ import { NextResponse } from "next/server";
 import { getAuth } from "@/lib/auth";
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const start = new Date(searchParams.get("start") || "");
-  const end = new Date(searchParams.get("end") || "");
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    return new NextResponse("Invalid date range", { status: 400 });
-  }
-  const session = await getAuth();
-  const role = (((session as any)?.user as any)?.role ?? "EMPLOYEE") as string;
-  const userId = (((session as any)?.user as any)?.id ?? "") as string;
+  try {
+    const { searchParams } = new URL(req.url);
+    const start = new Date(searchParams.get("start") || "");
+    const end = new Date(searchParams.get("end") || "");
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
+    }
+    const session = await getAuth();
+    const role = (((session as any)?.user as any)?.role ?? "EMPLOYEE") as string;
+    const userId = (((session as any)?.user as any)?.id ?? "") as string;
   const shareParam = role === "DIRECTOR" ? (searchParams.get("share") || "") : "";
   const shareIds = shareParam.split(",").map((s) => s.trim()).filter(Boolean);
   const overrideStr = searchParams.get("override") || "";
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
   
   if (role !== "DIRECTOR") {
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.employeeId) return new NextResponse("Forbidden", { status: 403 });
+    if (!user?.employeeId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const me = await prisma.employee.findUnique({ 
       where: { id: user.employeeId },
       select: {
@@ -172,6 +173,13 @@ export async function GET(req: Request) {
     });
   }
   return NextResponse.json(result);
+  } catch (error: any) {
+    console.error("Error calculating salaries:", error);
+    return NextResponse.json(
+      { error: error.message || "Ошибка при расчете зарплат", details: error.stack },
+      { status: 500 }
+    );
+  }
 }
 
 

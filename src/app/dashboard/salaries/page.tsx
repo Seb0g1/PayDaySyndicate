@@ -24,7 +24,29 @@ type Row = {
   bonusesList?: { amount: number; reason: string }[];
   hookah?: number;
 };
-const fetcher = (u: string) => fetch(u).then((r) => r.json());
+const fetcher = async (u: string) => {
+  try {
+    const response = await fetch(u);
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { error: errorText || `HTTP ${response.status}` };
+      }
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+    const text = await response.text();
+    if (!text) {
+      return [];
+    }
+    return JSON.parse(text);
+  } catch (error: any) {
+    console.error("Fetcher error:", error);
+    throw error;
+  }
+};
 
 export default function SalariesPage() {
   const NI = useNextIcons();
