@@ -23,13 +23,37 @@ export async function GET(req: Request) {
     orderBy: { updatedAt: "desc" },
   });
 
-  let employees = await prisma.employee.findMany();
+  let employees = await prisma.employee.findMany({
+    select: {
+      id: true,
+      name: true,
+      payRate: true,
+      payUnit: true,
+      role: true,
+    },
+  });
+  
   if (role !== "DIRECTOR") {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user?.employeeId) return new NextResponse("Forbidden", { status: 403 });
-    const me = await prisma.employee.findUnique({ where: { id: user.employeeId } });
+    const me = await prisma.employee.findUnique({ 
+      where: { id: user.employeeId },
+      select: {
+        id: true,
+        name: true,
+        payRate: true,
+        payUnit: true,
+        role: true,
+      },
+    });
     employees = me ? [me] : [];
   }
+  
+  // Если нет сотрудников, возвращаем пустой массив
+  if (employees.length === 0) {
+    return NextResponse.json([]);
+  }
+  
   const result = [] as any[];
 
   // Подсчитываем количество смен для каждого сотрудника за период

@@ -145,7 +145,13 @@ export default function SalariesPage() {
     try { const v = localStorage.getItem("shortagesTotal") || ""; setOverrideUnassigned(v); } catch {}
   }, []);
   const [shareIds, setShareIds] = useState<string[]>([]);
-  const { data, mutate, isLoading } = useSWR<Row[]>(`/api/salaries/calculate?start=${start}&end=${end}&share=${encodeURIComponent(shareIds.join(","))}&override=${encodeURIComponent(overrideUnassigned || "")}`, fetcher);
+  const { data, error, mutate, isLoading } = useSWR<Row[]>(`/api/salaries/calculate?start=${start}&end=${end}&share=${encodeURIComponent(shareIds.join(","))}&override=${encodeURIComponent(overrideUnassigned || "")}`, fetcher);
+  
+  useEffect(() => {
+    if (error) {
+      console.error("Ошибка загрузки зарплат:", error);
+    }
+  }, [error]);
   useEffect(() => {
     if (!data || role !== "DIRECTOR") return;
     if (shareIds.length === 0 && data.length > 0) setShareIds(data.map((r) => r.employee.id));
@@ -260,7 +266,9 @@ export default function SalariesPage() {
           <thead className="hidden lg:table-header-group"><tr className="bg-gray-50 text-left"><th className="p-2">Сотрудник</th><th className="p-2">Часы</th><th className="p-2">Смены</th><th className="p-2">Начислено</th><th className="p-2">Долги</th><th className="p-2">Недостачи</th><th className="p-2">Штрафы</th><th className="p-2">Бонусы</th><th className="p-2">Кальяны</th><th className="p-2">Итого</th><th className="p-2">Расчётный лист</th><th className="p-2">Выплатить</th></tr></thead>
           <tbody>
             {isLoading && <tr><td className="p-3" colSpan={12}>Загрузка...</td></tr>}
-            {!isLoading && (data ?? []).map((r) => (
+            {!isLoading && error && <tr><td className="p-3 text-red-500" colSpan={12}>Ошибка загрузки данных: {error.message || "Неизвестная ошибка"}</td></tr>}
+            {!isLoading && !error && (!data || data.length === 0) && <tr><td className="p-3 text-gray-400" colSpan={12}>Нет данных для отображения. Проверьте период и наличие сотрудников в системе.</td></tr>}
+            {!isLoading && !error && (data ?? []).map((r) => (
               <>
               <tr key={r.employee.id} className="border-t hidden lg:table-row">
                 <td className="p-2">{r.employee.name}</td>
