@@ -179,9 +179,9 @@ export async function POST() {
     // Получаем список исключенных ID товаров
     const excludedIds = settings.excludedProductIds || [];
     
-    // Синхронизируем ВСЕ товары (пропускаем только исключенные)
+    // Синхронизируем только активные товары (active != 0), пропускаем исключенные
     console.log("[API /langame/sync-products] Starting product sync loop, products count:", products.length);
-    console.log("[API /langame/sync-products] NOTE: All products will be synced, regardless of 'active' field. User can exclude unwanted products manually.");
+    console.log("[API /langame/sync-products] NOTE: Only active products (active != 0) will be synced. Inactive products (active = 0) will be skipped.");
     
     // Логируем информацию о товарах для отладки
     if (products.length > 0) {
@@ -208,9 +208,29 @@ export async function POST() {
           console.log(`[API /langame/sync-products] Product Full Data:`, JSON.stringify(product, null, 2));
         }
         
-        // СИНХРОНИЗИРУЕМ ВСЕ ТОВАРЫ - убрана проверка на active
-        // Пользователь сам исключит то, что ему не нужно
+        // Проверяем активность товара
+        // Если active = 0, товар неактивен и его не нужно синхронизировать
         const activeValue = (product as any).active;
+        const activeNum = Number(activeValue);
+        
+        // Проверяем, является ли товар неактивным (active = 0)
+        const isInactive = 
+          activeValue === 0 || 
+          activeValue === "0" || 
+          activeValue === false ||
+          (typeof activeValue === "string" && activeValue.toLowerCase() === "false") ||
+          (activeNum === 0 && !isNaN(activeNum));
+        
+        // Пропускаем неактивные товары (active = 0)
+        if (isInactive) {
+          if (isBurrito || created + updated < 5) {
+            console.log(`[API /langame/sync-products] Skipping inactive product: id=${product.id}, name=${product.name}, active=${activeValue} (type: ${typeof activeValue})`);
+            if (isBurrito) {
+              console.log(`[API /langame/sync-products] === BURRITO PRODUCT SKIPPED (INACTIVE: active=0) ===`);
+            }
+          }
+          continue;
+        }
         
         // Логируем информацию о товаре для отладки
         if (isBurrito || created + updated < 5) {
