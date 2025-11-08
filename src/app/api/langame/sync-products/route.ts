@@ -182,6 +182,7 @@ export async function POST() {
     // Синхронизируем только активные товары (active != 0), пропускаем исключенные
     console.log("[API /langame/sync-products] Starting product sync loop, products count:", products.length);
     console.log("[API /langame/sync-products] NOTE: Only active products (active != 0) will be synced. Inactive products (active = 0) will be skipped.");
+    console.log("[API /langame/sync-products] Excluded product IDs:", excludedIds);
     
     // Логируем информацию о товарах для отладки
     if (products.length > 0) {
@@ -189,9 +190,16 @@ export async function POST() {
       console.log("[API /langame/sync-products] Products fields:", Object.keys(products[0]));
     }
     
+    // Счетчики для статистики
+    let skippedInactive = 0;
+    let skippedExcluded = 0;
+    let skippedMissingId = 0;
+    let skippedErrors = 0;
+    
     for (const product of products) {
       try {
         if (!product.id || !product.name) {
+          skippedMissingId++;
           console.log(`[API /langame/sync-products] Skipping product: missing id or name, id=${product.id}, name=${product.name}`);
           continue;
         }
@@ -239,7 +247,8 @@ export async function POST() {
         
         // Пропускаем неактивные товары (active = 0)
         if (isInactive) {
-          if (isBurrito || created + updated < 5) {
+          skippedInactive++;
+          if (isBurrito || created + updated < 5 || skippedInactive <= 5) {
             console.log(`[API /langame/sync-products] Skipping inactive product: id=${product.id}, name=${product.name}, active=${activeValue} (type: ${typeof activeValue})`);
             if (isBurrito) {
               console.log(`[API /langame/sync-products] === BURRITO PRODUCT SKIPPED (INACTIVE: active=0) ===`);
@@ -256,9 +265,12 @@ export async function POST() {
         // Пропускаем товары из списка исключений
         if (excludedIds.includes(product.id)) {
           skippedExcluded++;
-          if (isBurrito) {
-            console.log(`[API /langame/sync-products] === BURRITO PRODUCT SKIPPED (EXCLUDED) ===`);
-            console.log(`[API /langame/sync-products] Product ID ${product.id} is in excluded list:`, excludedIds);
+          if (isBurrito || skippedExcluded <= 5) {
+            console.log(`[API /langame/sync-products] Skipping excluded product: id=${product.id}, name=${product.name}`);
+            if (isBurrito) {
+              console.log(`[API /langame/sync-products] === BURRITO PRODUCT SKIPPED (EXCLUDED) ===`);
+              console.log(`[API /langame/sync-products] Product ID ${product.id} is in excluded list:`, excludedIds);
+            }
           }
           continue;
         }
@@ -437,14 +449,18 @@ export async function POST() {
     }
     console.log("[API /langame/sync-products] Product sync loop completed, created:", created, "updated:", updated, "skippedExcluded:", skippedExcluded, "total processed:", created + updated);
 
-    console.log("[API /langame/sync-products] Sync completed successfully");
-    return NextResponse.json({
-      success: true,
-      created,
-      updated,
-      skippedExcluded,
-      total: Array.isArray(products) ? products.length : 0,
-    });
+          console.log("[API /langame/sync-products] Sync completed successfully");
+          return NextResponse.json({
+            success: true,
+            created,
+            updated,
+            skippedExcluded,
+            skippedInactive,
+            skippedMissingId,
+            skippedErrors,
+            total: Array.isArray(products) ? products.length : 0,
+            processed: created + updated,
+          });
   } catch (error: any) {
     console.error("[API /langame/sync-products] Unexpected error:", error);
     console.error("[API /langame/sync-products] Error message:", error?.message);
