@@ -258,6 +258,11 @@ npx tsx scripts/create-system-roles.ts || echo -e "${YELLOW}Предупрежд
 npx tsx scripts/create-new-roles.ts || echo -e "${YELLOW}Предупреждение: роли могут уже существовать${NC}"
 check_success "Роли созданы"
 
+# Шаг 9.5: Создание первого пользователя
+echo -e "\n${YELLOW}[9.5/12] Создание первого пользователя...${NC}"
+npx tsx scripts/create-first-user.ts || echo -e "${YELLOW}Предупреждение: пользователь может уже существовать${NC}"
+check_success "Первый пользователь создан"
+
 # Шаг 10: Сборка проекта
 echo -e "\n${YELLOW}[10/12] Сборка проекта...${NC}"
 npm run build
