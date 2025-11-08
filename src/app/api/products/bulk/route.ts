@@ -12,7 +12,8 @@ export async function POST(req: Request) {
     if (!it?.name) continue;
     const data: any = { name: String(it.name), price: Number(it.price || 0) };
     if (it.categoryId) data.categoryId = it.categoryId;
-    if (it.subcategory) data.category = String(it.subcategory);
+    if (it.subcategory !== undefined) data.subcategory = String(it.subcategory);
+    if (it.category !== undefined) data.category = String(it.category);
     if (!it.categoryId && it.mainCategory) {
       const cat = await prisma.category.upsert({ where: { name: String(it.mainCategory) }, create: { name: String(it.mainCategory) }, update: {} });
       data.categoryId = cat.id;

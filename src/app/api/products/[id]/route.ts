@@ -6,10 +6,10 @@ import { z } from "zod";
 const schema = z.object({
   name: z.string().min(1).optional(),
   price: z.number().positive().optional(),
-  category: z.string().optional(), // подкатегория (тег)
-  subcategory: z.string().optional(), // подкатегория
+  category: z.string().nullable().optional(), // подкатегория (тег)
+  subcategory: z.string().nullable().optional(), // подкатегория
   stock: z.number().int().nonnegative().optional(),
-  categoryId: z.string().optional(), // основная категория
+  categoryId: z.string().nullable().optional(), // основная категория
   isHidden: z.boolean().optional(), // скрыть товар
 });
 
@@ -20,7 +20,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { id } = await ctx.params;
-  const updated = await prisma.product.update({ where: { id }, data: parsed.data });
+  
+  // Обрабатываем null значения правильно
+  const updateData: any = {};
+  if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
+  if (parsed.data.price !== undefined) updateData.price = parsed.data.price;
+  if (parsed.data.category !== undefined) updateData.category = parsed.data.category;
+  if (parsed.data.subcategory !== undefined) updateData.subcategory = parsed.data.subcategory;
+  if (parsed.data.stock !== undefined) updateData.stock = parsed.data.stock;
+  if (parsed.data.categoryId !== undefined) updateData.categoryId = parsed.data.categoryId;
+  if (parsed.data.isHidden !== undefined) updateData.isHidden = parsed.data.isHidden;
+  
+  const updated = await prisma.product.update({ where: { id }, data: updateData });
   return NextResponse.json(updated);
 }
 

@@ -5,7 +5,8 @@ import { z } from "zod";
 
 const schema = z.object({
   ids: z.array(z.string()),
-  category: z.string().optional().nullable(),
+  category: z.string().optional().nullable(), // подкатегория (тег)
+  subcategory: z.string().optional().nullable(), // подкатегория
   price: z.number().min(0).optional(),
 });
 
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { ids, category, price } = schema.parse(body);
+    const { ids, category, subcategory, price } = schema.parse(body);
 
     if (!Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json(
@@ -30,6 +31,10 @@ export async function POST(req: Request) {
       updateData.category = category || null;
     }
     
+    if (subcategory !== undefined) {
+      updateData.subcategory = subcategory || null;
+    }
+    
     if (price !== undefined && price !== null) {
       if (price < 0) {
         return NextResponse.json(
@@ -42,7 +47,7 @@ export async function POST(req: Request) {
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
-        { error: "At least one of category or price must be provided" },
+        { error: "At least one of category, subcategory or price must be provided" },
         { status: 400 }
       );
     }
