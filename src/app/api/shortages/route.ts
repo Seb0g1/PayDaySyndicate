@@ -5,8 +5,26 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 export async function GET() {
-  const items = await prisma.shortage.findMany({ orderBy: { createdAt: "desc" } });
-  return NextResponse.json(items);
+  // Используем прямой SQL запрос для обхода проблем с отсутствующими колонками
+  const items = await prisma.$queryRaw`
+    SELECT 
+      id,
+      "productNameSystem",
+      "productNameActual",
+      "countSystem",
+      "countActual",
+      price,
+      "suggestedReplacement",
+      resolved,
+      "assignedToEmployeeId",
+      "excludedFromSalary",
+      "inventoryCountId",
+      "createdAt",
+      "updatedAt"
+    FROM "Shortage"
+    ORDER BY "createdAt" DESC
+  ` as any[];
+  return NextResponse.json(items || []);
 }
 
 const schema = z.object({

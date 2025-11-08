@@ -78,9 +78,20 @@ export async function GET(req: Request) {
       unassignedSum = Number((latestSavedCount.data as any).__shortageTotalValue) || 0;
     } else {
       // Если нет данных в пересчете, берем из недостач без назначенного сотрудника
-      const unassigned = await prisma.shortage.findMany({ where: { assignedToEmployeeId: null, createdAt: { gte: start, lte: end } } });
-      unassignedSum = unassigned.reduce((acc: number, s: any) => acc + Number(s.price) * Math.max(0, s.countSystem - s.countActual), 0);
-      unassignedDetails = unassigned.map((s: any) => ({ name: s.productNameSystem, qty: Math.max(0, s.countSystem - s.countActual), price: Number(s.price) }));
+      // Используем прямой SQL запрос для обхода проблем с отсутствующими колонками
+      const unassigned = await prisma.$queryRaw`
+        SELECT 
+          "productNameSystem",
+          "countSystem",
+          "countActual",
+          price
+        FROM "Shortage"
+        WHERE "assignedToEmployeeId" IS NULL
+          AND "createdAt" >= ${start}::TIMESTAMP
+          AND "createdAt" <= ${end}::TIMESTAMP
+      ` as any[];
+      unassignedSum = (unassigned || []).reduce((acc: number, s: any) => acc + Number(s.price) * Math.max(0, s.countSystem - s.countActual), 0);
+      unassignedDetails = (unassigned || []).map((s: any) => ({ name: s.productNameSystem, qty: Math.max(0, s.countSystem - s.countActual), price: Number(s.price) }));
     }
   }
   
@@ -127,23 +138,23 @@ export async function GET(req: Request) {
     const debts = await prisma.debt.findMany({ where: { employeeId: e.id, date: { gte: start, lte: end } }, include: { product: true } });
     const debtAmount = debts.reduce((acc: number, d: any) => acc + Number(d.amount), 0);
 
-    const shortages = await prisma.shortage.findMany({ 
-      where: { 
-        assignedToEmployeeId: e.id, 
-        createdAt: { gte: start, lte: end },
-        excludedFromSalary: false, // Исключаем недостачи, помеченные как неактивные
-        OR: [
-          { inventoryCount: null }, // Недостачи без связи с пересчетом
-          { inventoryCount: { archived: false } }, // Или из неархивированных пересчетов
-        ],
-      },
-      include: {
-        inventoryCount: {
-          select: { archived: true },
-        },
-      },
-    });
-    let shortageAmt = shortages.reduce((acc: number, s: any) => acc + Number(s.price) * Math.max(0, s.countSystem - s.countActual), 0);
+    // Используем прямой SQL запрос для обхода проблем с отсутствующими колонками
+    const shortages = await prisma.$queryRaw`
+      SELECT 
+        s."productNameSystem",
+        s."countSystem",
+        s."countActual",
+        s.price,
+        ic.archived as "inventoryCountArchived"
+      FROM "Shortage" s
+      LEFT JOIN "InventoryCountHistory" ic ON ic.id = s."inventoryCountId"
+      WHERE s."assignedToEmployeeId" = ${e.id}
+        AND s."createdAt" >= ${start}::TIMESTAMP
+        AND s."createdAt" <= ${end}::TIMESTAMP
+        AND s."excludedFromSalary" = false
+        AND (s."inventoryCountId" IS NULL OR ic.archived = false)
+    ` as any[];
+    let shortageAmt = (shortages || []).reduce((acc: number, s: any) => acc + Number(s.price) * Math.max(0, s.countSystem - s.countActual), 0);
     // Распределяем недостачи среди выбранных сотрудников
     const unassignedShare = employeeIdsForSharing.includes(e.id) ? unassignedSum / divisor : 0;
     if (unassignedShare > 0) shortageAmt += unassignedShare;
@@ -177,7 +188,7 @@ export async function GET(req: Request) {
       net,
       unassignedShare,
       shifts: shifts.map((s: any) => ({ date: s.date.toISOString(), type: s.type })),
-      shortages: shortages.map((s: any) => ({ name: s.productNameSystem, qty: Math.max(0, s.countSystem - s.countActual), price: Number(s.price) })),
+      shortages: (shortages || []).map((s: any) => ({ name: s.productNameSystem, qty: Math.max(0, s.countSystem - s.countActual), price: Number(s.price) })),
       debts: debts.map((d: any) => ({ name: d.product?.name ?? "Товар", qty: d.quantity, price: Number(d.product?.price ?? 0), amount: Number(d.amount) })),
       penalties: penaltySum,
       bonuses: bonusSum,

@@ -19,8 +19,18 @@ export async function POST(req: Request) {
     const gross = e.payUnit === "HOURLY" ? Number(e.payRate) * totalHours : Number(e.payRate) * totalShifts;
     const debts = await prisma.debt.findMany({ where: { employeeId: e.id, date: { gte: startDate, lte: endDate } } });
     const debtAmount = debts.reduce((acc: number, d: any) => acc + Number(d.amount), 0);
-    const shortages = await prisma.shortage.findMany({ where: { assignedToEmployeeId: e.id, createdAt: { gte: startDate, lte: endDate } } });
-    const shortageAmt = shortages.reduce((acc: number, s: any) => acc + Number(s.price) * Math.max(0, s.countSystem - s.countActual), 0);
+    // Используем прямой SQL запрос для обхода проблем с отсутствующими колонками
+    const shortages = await prisma.$queryRaw`
+      SELECT 
+        "countSystem",
+        "countActual",
+        price
+      FROM "Shortage"
+      WHERE "assignedToEmployeeId" = ${e.id}
+        AND "createdAt" >= ${startDate}::TIMESTAMP
+        AND "createdAt" <= ${endDate}::TIMESTAMP
+    ` as any[];
+    const shortageAmt = (shortages || []).reduce((acc: number, s: any) => acc + Number(s.price) * Math.max(0, s.countSystem - s.countActual), 0);
     const net = gross - debtAmount - shortageAmt;
     await prisma.salaryLine.create({ data: { batchId: batch.id, employeeId: e.id, grossAmount: gross, debtAmount, shortageAmt, netAmount: net } });
   }
