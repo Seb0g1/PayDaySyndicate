@@ -42,15 +42,25 @@ export async function GET(req: Request) {
 
   // Получаем список исключенных ID товаров из LangameSettings
   try {
-    const langameSettings = await prisma.langameSettings.findFirst();
-    if (langameSettings?.excludedProductIds && langameSettings.excludedProductIds.length > 0) {
-      // Исключаем товары с ID из списка исключений
-      where.NOT = {
-        langameId: { in: langameSettings.excludedProductIds },
-      };
+    // Проверяем, существует ли таблица LangameSettings
+    const tableExists = await prisma.$queryRaw`
+      SELECT 1 FROM information_schema.tables 
+      WHERE table_name = 'LangameSettings' 
+      LIMIT 1;
+    ` as any[];
+    
+    if (tableExists && tableExists.length > 0) {
+      const langameSettings = await prisma.langameSettings.findFirst();
+      if (langameSettings?.excludedProductIds && langameSettings.excludedProductIds.length > 0) {
+        // Исключаем товары с ID из списка исключений
+        where.NOT = {
+          langameId: { in: langameSettings.excludedProductIds },
+        };
+      }
     }
   } catch (error) {
     // Игнорируем ошибки при получении настроек
+    console.warn("Error checking LangameSettings:", error);
   }
 
   const orderBy: any = sort === "price" ? { price: dir } : { name: dir };

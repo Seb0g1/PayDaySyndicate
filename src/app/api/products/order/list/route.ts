@@ -25,14 +25,24 @@ export async function GET() {
 
     // Получаем список исключенных ID товаров из LangameSettings
     try {
-      const langameSettings = await prisma.langameSettings.findFirst();
-      if (langameSettings?.excludedProductIds && langameSettings.excludedProductIds.length > 0) {
-        return NextResponse.json(
-          products.filter((p) => !p.langameId || !langameSettings.excludedProductIds.includes(p.langameId))
-        );
+      // Проверяем, существует ли таблица LangameSettings
+      const tableExists = await prisma.$queryRaw`
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'LangameSettings' 
+        LIMIT 1;
+      ` as any[];
+      
+      if (tableExists && tableExists.length > 0) {
+        const langameSettings = await prisma.langameSettings.findFirst();
+        if (langameSettings?.excludedProductIds && langameSettings.excludedProductIds.length > 0) {
+          return NextResponse.json(
+            products.filter((p) => !p.langameId || !langameSettings.excludedProductIds.includes(p.langameId))
+          );
+        }
       }
     } catch (error) {
       // Игнорируем ошибки при получении настроек
+      console.warn("Error checking LangameSettings:", error);
     }
 
     return NextResponse.json(products);

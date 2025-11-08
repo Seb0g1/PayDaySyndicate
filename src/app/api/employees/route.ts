@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/guards";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { hash } from "bcryptjs";
 
 const employeeSchema = z.object({
   name: z.string().min(1),
@@ -13,6 +14,7 @@ const employeeSchema = z.object({
   payUnit: z.enum(["HOURLY", "DAILY"]).default("DAILY"),
   userRole: z.enum(["DIRECTOR"]).optional().or(z.literal("")).transform((v) => (v ? v : undefined)),
   customRoleId: z.string().optional().or(z.literal("")).transform((v) => (v ? v : undefined)),
+  password: z.string().optional().or(z.literal("")).transform((v) => (v ? v : undefined)),
 });
 
 export async function GET(req: Request) {
@@ -77,7 +79,7 @@ export async function POST(req: Request) {
   const body = await req.json();
   const parsed = employeeSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  const { name, email, phone, telegramTag, hireDate, payRate, payUnit, userRole, customRoleId } = parsed.data;
+  const { name, email, phone, telegramTag, hireDate, payRate, payUnit, userRole, customRoleId, password } = parsed.data;
   
   // Проверяем, существует ли колонка userRole
   const hasUserRole = await prisma.$queryRaw`
@@ -137,6 +139,53 @@ export async function POST(req: Request) {
   
   if (!result || result.length === 0) {
     return NextResponse.json({ error: "Не удалось создать сотрудника" }, { status: 500 });
+  }
+  
+  const employeeId = result[0].id;
+  
+  // Если указан пароль, создаем пользователя для входа
+  if (password && password.trim()) {
+    try {
+      const hashedPassword = await hash(password, 10);
+      const finalRole = userRole || "EMPLOYEE";
+      
+      // Проверяем, существует ли пользователь с таким email или именем
+      const existingUser = await prisma.$queryRaw`
+        SELECT id FROM "User" WHERE email = ${email || ""} OR name = ${name} LIMIT 1;
+      ` as any[];
+      
+      if (existingUser && existingUser.length > 0) {
+        // Обновляем существующего пользователя
+        await prisma.$executeRaw`
+          UPDATE "User"
+          SET 
+            password = ${hashedPassword},
+            role = ${finalRole}::"UserRole",
+            "employeeId" = ${employeeId},
+            "updatedAt" = NOW()
+          WHERE id = ${existingUser[0].id};
+        `;
+      } else {
+        // Создаем нового пользователя
+        await prisma.$executeRaw`
+          INSERT INTO "User" (id, name, email, password, role, "employeeId", "createdAt", "updatedAt")
+          VALUES (
+            gen_random_uuid()::TEXT,
+            ${name},
+            ${email || null},
+            ${hashedPassword},
+            ${finalRole}::"UserRole",
+            ${employeeId},
+            NOW(),
+            NOW()
+          );
+        `;
+      }
+    } catch (userError: any) {
+      console.error("Error creating user for employee:", userError);
+      // Не возвращаем ошибку, так как сотрудник уже создан
+      // Просто логируем ошибку
+    }
   }
   
   return NextResponse.json(result[0], { status: 201 });

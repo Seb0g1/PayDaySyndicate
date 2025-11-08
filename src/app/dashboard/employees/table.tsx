@@ -154,6 +154,7 @@ function EmployeeForm({ initial, onClose, onSaved }: { initial?: Employee; onClo
   const [customRoleId, setCustomRoleId] = useState<string>(
     (initial as any)?.customRole?.id || (initial as any)?.customRoleId || ""
   );
+  const [password, setPassword] = useState("");
   const [roles, setRoles] = useState<any[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -193,6 +194,7 @@ function EmployeeForm({ initial, onClose, onSaved }: { initial?: Employee; onClo
         payUnit, 
         ...(userRole ? { userRole } : {}),
         customRoleId: customRoleId || undefined,
+        ...(password ? { password } : {}),
       };
       const res = await fetch(initial ? `/api/employees/${initial.id}` : "/api/employees", {
         method: initial ? "PATCH" : "POST",
@@ -270,6 +272,21 @@ function EmployeeForm({ initial, onClose, onSaved }: { initial?: Employee; onClo
               ))}
             </select>
           </div>
+          {!initial && (
+            <div className="col-span-2">
+              <label className="block text-xs mb-1" style={{ color: "rgba(255, 255, 255, 0.7)" }}>Пароль для входа (опционально)</label>
+              <input 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                className="border rounded px-2 py-1 w-full" 
+                placeholder="Оставьте пустым, если не нужно создавать пользователя"
+              />
+              <p className="text-xs mt-1" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
+                Если указан пароль, будет создан пользователь для входа на сайт
+              </p>
+            </div>
+          )}
         </div>
         {error && <p className="text-sm mt-2" style={{ color: "#ef4444" }}>{error}</p>}
         <div className="mt-4 flex justify-end gap-2">
