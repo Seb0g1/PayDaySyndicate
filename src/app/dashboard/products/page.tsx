@@ -584,9 +584,28 @@ export default function ProductsPage() {
                  </td>
                  <td className="p-2">
                    <InlineSubEditor value={p.category ?? ""} onSave={async (v) => {
-                     const res = await fetch(`/api/products/${p.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category: v }) });
-                     if (!res.ok) alert(await res.text());
-                     mutate();
+                     try {
+                       const res = await fetch(`/api/products/${p.id}`, { 
+                         method: "PATCH", 
+                         headers: { "Content-Type": "application/json" }, 
+                         body: JSON.stringify({ category: v || null }) 
+                       });
+                       if (!res.ok) {
+                         let errorText = "";
+                         try {
+                           const errorData = await res.json();
+                           errorText = errorData.error || "Ошибка при обновлении подкатегории";
+                         } catch {
+                           errorText = await res.text() || "Ошибка при обновлении подкатегории";
+                         }
+                         showError(errorText);
+                         return;
+                       }
+                       showSuccess("Подкатегория обновлена");
+                       mutate();
+                     } catch (error: any) {
+                       showError("Ошибка при обновлении подкатегории");
+                     }
                    }} />
                  </td>
                  <td className="p-2 text-right">
@@ -648,9 +667,28 @@ export default function ProductsPage() {
                           <div>
                             <label className="block text-xs text-gray-400 mb-1">Подкатегория:</label>
                             <InlineSubEditor value={p.category ?? ""} onSave={async (v) => {
-                              const res = await fetch(`/api/products/${p.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category: v }) });
-                              if (!res.ok) alert(await res.text());
-                              mutate();
+                              try {
+                                const res = await fetch(`/api/products/${p.id}`, { 
+                                  method: "PATCH", 
+                                  headers: { "Content-Type": "application/json" }, 
+                                  body: JSON.stringify({ category: v || null }) 
+                                });
+                                if (!res.ok) {
+                                  let errorText = "";
+                                  try {
+                                    const errorData = await res.json();
+                                    errorText = errorData.error || "Ошибка при обновлении подкатегории";
+                                  } catch {
+                                    errorText = await res.text() || "Ошибка при обновлении подкатегории";
+                                  }
+                                  showError(errorText);
+                                  return;
+                                }
+                                showSuccess("Подкатегория обновлена");
+                                mutate();
+                              } catch (error: any) {
+                                showError("Ошибка при обновлении подкатегории");
+                              }
                             }} />
                           </div>
                         </div>

@@ -21,9 +21,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const body = await req.json();
     console.log(`[API /products/[id]] Received update request:`, body);
     
-    // Обрабатываем пустые строки как null для categoryId
+    // Обрабатываем пустые строки как null для categoryId, category и subcategory
     if (body.categoryId === "") {
       body.categoryId = null;
+    }
+    if (body.category === "") {
+      body.category = null;
+    }
+    if (body.subcategory === "") {
+      body.subcategory = null;
     }
     
     const parsed = schema.safeParse(body);
@@ -38,8 +44,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const updateData: any = {};
     if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
     if (parsed.data.price !== undefined) updateData.price = parsed.data.price;
-    if (parsed.data.category !== undefined) updateData.category = parsed.data.category || null;
-    if (parsed.data.subcategory !== undefined) updateData.subcategory = parsed.data.subcategory || null;
+    // Обрабатываем category (подкатегория/тег) правильно - может быть null для удаления
+    if (parsed.data.category !== undefined) {
+      // Пустая строка или null должны стать null
+      updateData.category = parsed.data.category && parsed.data.category.trim() !== "" ? parsed.data.category : null;
+    }
+    // Обрабатываем subcategory (подкатегория) правильно - может быть null для удаления
+    if (parsed.data.subcategory !== undefined) {
+      // Пустая строка или null должны стать null
+      updateData.subcategory = parsed.data.subcategory && parsed.data.subcategory.trim() !== "" ? parsed.data.subcategory : null;
+    }
     if (parsed.data.stock !== undefined) updateData.stock = parsed.data.stock;
     // Обрабатываем categoryId правильно - может быть null для удаления категории
     if (parsed.data.categoryId !== undefined) {
@@ -52,7 +66,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     
     const updated = await prisma.product.update({ where: { id }, data: updateData });
     
-    console.log(`[API /products/[id]] Product ${id} updated successfully, categoryId: ${updated.categoryId}`);
+    console.log(`[API /products/[id]] Product ${id} updated successfully, categoryId: ${updated.categoryId}, category: ${updated.category}, subcategory: ${updated.subcategory}`);
     
     return NextResponse.json(updated);
   } catch (error: any) {
