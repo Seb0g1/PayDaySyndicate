@@ -8,29 +8,37 @@ export async function POST(req: Request) {
   
   try {
     const body = await req.json();
-    const { ids, categoryId } = body;
+    console.log(`[API /products/bulk-category] Received request:`, body);
+    
+    let { ids, categoryId } = body;
     
     if (!Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: "ids[] required and must not be empty" }, { status: 400 });
     }
     
+    // Обрабатываем пустую строку как null для categoryId
+    if (categoryId === "") {
+      categoryId = null;
+    }
+    
     // Обрабатываем categoryId правильно - может быть null, undefined или строкой
     const updateData: any = {};
     if (categoryId !== undefined) {
-      updateData.categoryId = categoryId || null;
+      // Пустая строка или null должны стать null
+      updateData.categoryId = categoryId && categoryId.trim() !== "" ? categoryId : null;
     } else {
       // Если categoryId не передан, не обновляем его
       return NextResponse.json({ error: "categoryId is required" }, { status: 400 });
     }
     
-    console.log(`[API /products/bulk-category] Updating ${ids.length} products with categoryId: ${categoryId}`);
+    console.log(`[API /products/bulk-category] Updating ${ids.length} products with categoryId: ${updateData.categoryId}`);
     
     const res = await prisma.product.updateMany({ 
       where: { id: { in: ids as string[] } }, 
       data: updateData
     });
     
-    console.log(`[API /products/bulk-category] Updated ${res.count} products`);
+    console.log(`[API /products/bulk-category] Updated ${res.count} products successfully`);
     
     return NextResponse.json({ updated: res.count });
   } catch (error: any) {

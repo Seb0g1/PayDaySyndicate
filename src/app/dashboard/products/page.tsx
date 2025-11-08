@@ -557,13 +557,22 @@ export default function ProductsPage() {
                      categories={categories ?? []}
                      currentCategoryName={p.categoryRef?.name ?? ""}
                      onSave={async (categoryId) => {
-                       const res = await fetch(`/api/products/${p.id}`, { 
-                         method: "PATCH", 
-                         headers: { "Content-Type": "application/json" }, 
-                         body: JSON.stringify({ categoryId: categoryId || null }) 
-                       });
-                       if (!res.ok) alert(await res.text());
-                       mutate();
+                       try {
+                         const res = await fetch(`/api/products/${p.id}`, { 
+                           method: "PATCH", 
+                           headers: { "Content-Type": "application/json" }, 
+                           body: JSON.stringify({ categoryId: categoryId || null }) 
+                         });
+                         if (!res.ok) {
+                           const error = await res.json().catch(() => ({ error: await res.text() }));
+                           showError(error.error || "Ошибка при обновлении категории");
+                           return;
+                         }
+                         showSuccess("Категория обновлена");
+                         mutate();
+                       } catch (error: any) {
+                         showError("Ошибка при обновлении категории");
+                       }
                      }} 
                    />
                  </td>
