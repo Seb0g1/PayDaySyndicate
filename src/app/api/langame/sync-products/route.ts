@@ -429,25 +429,39 @@ export async function POST() {
           }
         }
       } catch (productError: any) {
-        const isBurrito = product.name && (
+        skippedErrors++;
+        const isBurrito = (product.id === 883) || (product.name && (
           product.name.toLowerCase().includes("буррито") || 
           product.name.toLowerCase().includes("burrito")
-        );
+        ));
         console.error(`[API /langame/sync-products] Error processing product ${product.id} (${product.name}):`, productError);
         console.error(`[API /langame/sync-products] Error stack:`, productError?.stack);
-        if (isBurrito) {
-          console.error(`[API /langame/sync-products] === BURRITO PRODUCT ERROR ===`);
+        if (isBurrito || skippedErrors <= 5) {
           console.error(`[API /langame/sync-products] Error details:`, {
             message: productError?.message,
             code: productError?.code,
             name: productError?.name,
           });
         }
+        if (isBurrito) {
+          console.error(`[API /langame/sync-products] === BURRITO PRODUCT ERROR ===`);
+        }
         // Продолжаем обработку других товаров
         continue;
       }
     }
-    console.log("[API /langame/sync-products] Product sync loop completed, created:", created, "updated:", updated, "skippedExcluded:", skippedExcluded, "total processed:", created + updated);
+    console.log("[API /langame/sync-products] Product sync loop completed");
+    console.log("[API /langame/sync-products] Statistics:");
+    console.log("[API /langame/sync-products]   - Total products from API:", products.length);
+    console.log("[API /langame/sync-products]   - Created:", created);
+    console.log("[API /langame/sync-products]   - Updated:", updated);
+    console.log("[API /langame/sync-products]   - Skipped (inactive):", skippedInactive);
+    console.log("[API /langame/sync-products]   - Skipped (excluded):", skippedExcluded);
+    console.log("[API /langame/sync-products]   - Skipped (missing id/name):", skippedMissingId);
+    console.log("[API /langame/sync-products]   - Skipped (errors):", skippedErrors);
+    console.log("[API /langame/sync-products]   - Total processed (created + updated):", created + updated);
+    console.log("[API /langame/sync-products]   - Total skipped:", skippedInactive + skippedExcluded + skippedMissingId + skippedErrors);
+    console.log("[API /langame/sync-products]   - Expected total:", products.length, "Actual total:", created + updated + skippedInactive + skippedExcluded + skippedMissingId + skippedErrors);
 
           console.log("[API /langame/sync-products] Sync completed successfully");
           return NextResponse.json({
