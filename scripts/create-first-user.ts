@@ -116,19 +116,6 @@ async function main() {
             console.log(`✅ Сотрудник создан и связан с пользователем`);
           }
         }
-        
-        if (employeeResult && employeeResult.length > 0) {
-          const newEmployeeId = employeeResult[0].id;
-          
-          // Связываем пользователя с сотрудником
-          await prisma.$executeRaw`
-            UPDATE "User"
-            SET "employeeId" = ${newEmployeeId}
-            WHERE id = ${userId};
-          `;
-          
-          console.log(`✅ Сотрудник создан и связан с пользователем`);
-        }
       }
       
       console.log(`✅ Пользователь "${name}" обновлен с ролью ${role}`);
