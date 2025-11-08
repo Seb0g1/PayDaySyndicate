@@ -174,7 +174,6 @@ export async function POST() {
 
     let updated = 0;
     let created = 0;
-    let skippedExcluded = 0;
 
     // Получаем список исключенных ID товаров
     const excludedIds = settings.excludedProductIds || [];
