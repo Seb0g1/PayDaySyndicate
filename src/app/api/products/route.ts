@@ -103,7 +103,64 @@ export async function GET(req: Request) {
 
     // Фильтруем исключенные товары
     if (excludedIds.length > 0) {
+      const beforeFilter = products.length;
       products = products.filter((p: any) => !p.langameId || !excludedIds.includes(p.langameId));
+      const afterFilter = products.length;
+      if (beforeFilter !== afterFilter) {
+        console.log(`[API /products] Filtered out ${beforeFilter - afterFilter} excluded products`);
+      }
+      
+      // Специальное логирование для товара ID 883
+      const burritoProduct = products.find((p: any) => p.langameId === 883);
+      if (!burritoProduct) {
+        // Проверяем, был ли товар отфильтрован
+        const allProducts = await prisma.$queryRawUnsafe(query, ...params) as any[];
+        const burritoInAll = allProducts.find((p: any) => p.langameId === 883);
+        if (burritoInAll) {
+          console.log(`[API /products] === BURRITO PRODUCT (ID 883) FILTERED OUT ===`);
+          console.log(`[API /products] Product data:`, {
+            id: burritoInAll.id,
+            name: burritoInAll.name,
+            langameId: burritoInAll.langameId,
+            isHidden: burritoInAll.isHidden,
+            excludedIds: excludedIds,
+            isExcluded: excludedIds.includes(883),
+          });
+        } else {
+          console.log(`[API /products] === BURRITO PRODUCT (ID 883) NOT FOUND IN QUERY ===`);
+          // Проверяем, существует ли товар в базе данных
+          const burritoInDb = await prisma.product.findUnique({
+            where: { langameId: 883 },
+            select: {
+              id: true,
+              name: true,
+              langameId: true,
+              isHidden: true,
+              stock: true,
+            },
+          });
+          if (burritoInDb) {
+            console.log(`[API /products] === BURRITO PRODUCT (ID 883) EXISTS IN DB ===`);
+            console.log(`[API /products] Product data:`, burritoInDb);
+            console.log(`[API /products] Query filters:`, {
+              q,
+              categoryId,
+              includeHidden,
+              stockFilter,
+            });
+          } else {
+            console.log(`[API /products] === BURRITO PRODUCT (ID 883) NOT FOUND IN DB ===`);
+          }
+        }
+      } else {
+        console.log(`[API /products] === BURRITO PRODUCT (ID 883) FOUND IN RESULTS ===`);
+        console.log(`[API /products] Product data:`, {
+          id: burritoProduct.id,
+          name: burritoProduct.name,
+          langameId: burritoProduct.langameId,
+          isHidden: burritoProduct.isHidden,
+        });
+      }
     }
 
     // Форматируем результат для клиента
