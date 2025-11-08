@@ -346,13 +346,21 @@ export async function POST() {
           }
           
           try {
-            await prisma.product.update({
+            const updatedProduct = await prisma.product.update({
               where: { id: existing.id },
               data: updateData,
             });
             updated++;
             if (isBurrito) {
               console.log(`[API /langame/sync-products] === BURRITO PRODUCT UPDATED SUCCESSFULLY ===`);
+              console.log(`[API /langame/sync-products] Updated product data:`, {
+                id: updatedProduct.id,
+                name: updatedProduct.name,
+                price: updatedProduct.price,
+                stock: updatedProduct.stock,
+                isHidden: updatedProduct.isHidden,
+                langameId: updatedProduct.langameId,
+              });
             }
           } catch (updateError: any) {
             console.error(`[API /langame/sync-products] Error updating product ${existing.id}:`, updateError);
