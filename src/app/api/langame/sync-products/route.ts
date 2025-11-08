@@ -229,6 +229,18 @@ export async function POST() {
           continue;
         }
         
+        // Специальное логирование для товара "Cyber Буррито курица"
+        const isBurrito = product.name && (
+          product.name.toLowerCase().includes("буррито") || 
+          product.name.toLowerCase().includes("burrito")
+        );
+        if (isBurrito) {
+          console.log(`[API /langame/sync-products] === BURRITO PRODUCT FOUND ===`);
+          console.log(`[API /langame/sync-products] Product ID: ${product.id}`);
+          console.log(`[API /langame/sync-products] Product Name: ${product.name}`);
+          console.log(`[API /langame/sync-products] Product Full Data:`, JSON.stringify(product, null, 2));
+        }
+        
         // Проверяем активность товара - более гибкая проверка
         // active может быть: 1, "1", true, или отсутствовать
         const activeValue = (product as any).active;
@@ -278,8 +290,11 @@ export async function POST() {
         // Пропускаем товары, которые не активны
         if (!isActive) {
           skippedInactive++;
-          if (skippedInactive <= 20) { // Логируем первые 20 пропущенных
+          if (skippedInactive <= 20 || isBurrito) { // Логируем первые 20 пропущенных или буррито
             console.log(`[API /langame/sync-products] Skipping inactive product: id=${product.id}, name=${product.name}, active=${activeValue} (type: ${typeof activeValue}), isActiveValue=${isActiveValue}`);
+            if (isBurrito) {
+              console.log(`[API /langame/sync-products] === BURRITO PRODUCT SKIPPED (INACTIVE) ===`);
+            }
           }
           continue;
         }
@@ -292,6 +307,10 @@ export async function POST() {
         // Пропускаем товары из списка исключений
         if (excludedIds.includes(product.id)) {
           skippedExcluded++;
+          if (isBurrito) {
+            console.log(`[API /langame/sync-products] === BURRITO PRODUCT SKIPPED (EXCLUDED) ===`);
+            console.log(`[API /langame/sync-products] Product ID ${product.id} is in excluded list:`, excludedIds);
+          }
           continue;
         }
 
@@ -319,9 +338,18 @@ export async function POST() {
           console.log(`Product ${product.id} (${product.name}): price NOT found. Goods data:`, goodsData, "Product data fields:", Object.keys(product));
         }
 
+        if (isBurrito) {
+          console.log(`[API /langame/sync-products] === BURRITO PRODUCT PROCESSING ===`);
+          console.log(`[API /langame/sync-products] Stock: ${stock}, Price: ${price}, PriceFromGoods: ${priceFromGoods}, PriceFromProduct: ${priceFromProduct}`);
+        }
+        
         const existing = await prisma.product.findUnique({
           where: { langameId: product.id },
         });
+
+        if (isBurrito) {
+          console.log(`[API /langame/sync-products] Existing product found:`, existing ? `Yes (ID: ${existing.id})` : "No");
+        }
 
         if (existing) {
           // Обновляем остаток
@@ -345,10 +373,24 @@ export async function POST() {
             data: updateData,
           });
           updated++;
+          if (isBurrito) {
+            console.log(`[API /langame/sync-products] === BURRITO PRODUCT UPDATED ===`);
+            console.log(`[API /langame/sync-products] Update data:`, updateData);
+          }
         } else {
           // Создаем новый товар
           // Если цена не найдена, устанавливаем 0
           const finalPrice = (price !== undefined && price !== null && !isNaN(price) && price > 0) ? price : 0;
+          
+          if (isBurrito) {
+            console.log(`[API /langame/sync-products] === BURRITO PRODUCT CREATING ===`);
+            console.log(`[API /langame/sync-products] Create data:`, {
+              name: product.name,
+              price: finalPrice,
+              stock: stock,
+              langameId: product.id,
+            });
+          }
           
           await prisma.product.create({
             data: {
@@ -360,10 +402,25 @@ export async function POST() {
             },
           });
           created++;
+          if (isBurrito) {
+            console.log(`[API /langame/sync-products] === BURRITO PRODUCT CREATED ===`);
+          }
         }
       } catch (productError: any) {
+        const isBurrito = product.name && (
+          product.name.toLowerCase().includes("буррито") || 
+          product.name.toLowerCase().includes("burrito")
+        );
         console.error(`[API /langame/sync-products] Error processing product ${product.id} (${product.name}):`, productError);
         console.error(`[API /langame/sync-products] Error stack:`, productError?.stack);
+        if (isBurrito) {
+          console.error(`[API /langame/sync-products] === BURRITO PRODUCT ERROR ===`);
+          console.error(`[API /langame/sync-products] Error details:`, {
+            message: productError?.message,
+            code: productError?.code,
+            name: productError?.name,
+          });
+        }
         // Продолжаем обработку других товаров
         continue;
       }
