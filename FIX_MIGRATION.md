@@ -6,9 +6,9 @@
 - `langameId` - ID товара из Langame API
 - `isHidden` - Скрыт ли товар
 
-## Решение
+## Решение (ПОЛНАЯ ПОСЛЕДОВАТЕЛЬНОСТЬ)
 
-Выполните на сервере следующие команды:
+Выполните на сервере следующие команды **ПО ПОРЯДКУ**:
 
 ```bash
 # 1. Подключитесь к серверу
@@ -17,26 +17,34 @@ ssh root@otchet.24cybersyndicate.ru
 # 2. Перейдите в директорию проекта
 cd /var/www/salary-manager
 
-# 3. Подключитесь к PostgreSQL
-sudo -u postgres psql -d salary
+# 3. Обновите код из GitHub (если нужно)
+git pull origin main
 
-# 4. Добавьте недостающие колонки (выполните в psql):
+# 4. Выполните SQL-скрипт для добавления колонок
+sudo -u postgres psql -d salary -f fix_product_columns.sql
+
+# ИЛИ выполните команды вручную:
+sudo -u postgres psql -d salary << EOF
 ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "langameId" INTEGER;
 ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "isHidden" BOOLEAN DEFAULT false;
 ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "stock" INTEGER DEFAULT 0;
 ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "lastImportedAt" TIMESTAMP(3);
-
-# 5. Создайте уникальный индекс для langameId (если его нет)
 CREATE UNIQUE INDEX IF NOT EXISTS "Product_langameId_key" ON "Product"("langameId") WHERE "langameId" IS NOT NULL;
-
-# 6. Создайте индекс для isHidden (если его нет)
 CREATE INDEX IF NOT EXISTS "Product_isHidden_idx" ON "Product"("isHidden");
-
-# 7. Создайте индекс для langameId (если его нет)
 CREATE INDEX IF NOT EXISTS "Product_langameId_idx" ON "Product"("langameId");
+EOF
 
-# 8. Выйдите из psql
-\q
+# 5. Проверьте, что колонки добавлены
+sudo -u postgres psql -d salary -c "\d \"Product\""
+
+# 6. ОБЯЗАТЕЛЬНО! Перегенерируйте Prisma Client
+npx prisma generate
+
+# 7. Проверьте, что Prisma Client сгенерирован
+ls -la src/generated/prisma/client.ts
+
+# 8. Пересоберите приложение (ОБЯЗАТЕЛЬНО!)
+npm run build
 
 # 9. Перезапустите приложение
 pm2 restart salary-manager
