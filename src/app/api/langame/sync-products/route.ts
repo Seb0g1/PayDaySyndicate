@@ -196,13 +196,13 @@ export async function POST() {
           continue;
         }
         
-        // Специальное логирование для товара "Cyber Буррито курица" или "Cyber Буррито (Курица)"
-        const isBurrito = product.name && (
+        // Специальное логирование для товара "Cyber Буррито курица" или "Cyber Буррито (Курица)" или ID 883
+        const isBurrito = (product.id === 883) || (product.name && (
           product.name.toLowerCase().includes("буррито") || 
           product.name.toLowerCase().includes("burrito")
-        );
+        ));
         if (isBurrito) {
-          console.log(`[API /langame/sync-products] === BURRITO PRODUCT FOUND ===`);
+          console.log(`[API /langame/sync-products] === BURRITO PRODUCT FOUND (ID: ${product.id}) ===`);
           console.log(`[API /langame/sync-products] Product ID: ${product.id}`);
           console.log(`[API /langame/sync-products] Product Name: ${product.name}`);
           console.log(`[API /langame/sync-products] Product Full Data:`, JSON.stringify(product, null, 2));
@@ -210,16 +210,32 @@ export async function POST() {
         
         // Проверяем активность товара
         // Если active = 0, товар неактивен и его не нужно синхронизировать
+        // Если active отсутствует (undefined), считаем товар активным
         const activeValue = (product as any).active;
         const activeNum = Number(activeValue);
         
+        if (isBurrito) {
+          console.log(`[API /langame/sync-products] === BURRITO PRODUCT ACTIVE CHECK ===`);
+          console.log(`[API /langame/sync-products] activeValue: ${activeValue} (type: ${typeof activeValue})`);
+          console.log(`[API /langame/sync-products] activeNum: ${activeNum}`);
+          console.log(`[API /langame/sync-products] activeValue === undefined: ${activeValue === undefined}`);
+          console.log(`[API /langame/sync-products] activeValue === null: ${activeValue === null}`);
+        }
+        
         // Проверяем, является ли товар неактивным (active = 0)
+        // Если active отсутствует (undefined или null), считаем товар активным
         const isInactive = 
-          activeValue === 0 || 
-          activeValue === "0" || 
-          activeValue === false ||
-          (typeof activeValue === "string" && activeValue.toLowerCase() === "false") ||
-          (activeNum === 0 && !isNaN(activeNum));
+          (activeValue !== undefined && activeValue !== null) && (
+            activeValue === 0 || 
+            activeValue === "0" || 
+            activeValue === false ||
+            (typeof activeValue === "string" && activeValue.toLowerCase() === "false") ||
+            (activeNum === 0 && !isNaN(activeNum))
+          );
+        
+        if (isBurrito) {
+          console.log(`[API /langame/sync-products] === BURRITO PRODUCT IS INACTIVE: ${isInactive} ===`);
+        }
         
         // Пропускаем неактивные товары (active = 0)
         if (isInactive) {
