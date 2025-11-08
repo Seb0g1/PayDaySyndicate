@@ -46,7 +46,6 @@ export async function POST() {
           success: false,
           created: 0,
           updated: 0,
-          skippedInactive: 0,
           skippedExcluded: 0,
           total: 0,
         },
