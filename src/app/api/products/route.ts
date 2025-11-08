@@ -80,6 +80,63 @@ export async function GET(req: Request) {
     // Выполняем запрос
     let products = await prisma.$queryRawUnsafe(query, ...params) as any[];
 
+    // Специальное логирование для товара ID 883 - проверяем до фильтрации исключений
+    const burritoBeforeFilter = products.find((p: any) => p.langameId === 883);
+    if (!burritoBeforeFilter) {
+      // Проверяем, существует ли товар в базе данных
+      const burritoInDb = await prisma.product.findUnique({
+        where: { langameId: 883 },
+        select: {
+          id: true,
+          name: true,
+          langameId: true,
+          isHidden: true,
+          stock: true,
+          categoryId: true,
+        },
+      });
+      if (burritoInDb) {
+        console.log(`[API /products] === BURRITO PRODUCT (ID 883) FILTERED BY SQL QUERY ===`);
+        console.log(`[API /products] Product in DB:`, burritoInDb);
+        console.log(`[API /products] Query filters:`, {
+          q,
+          categoryId,
+          includeHidden,
+          stockFilter,
+        });
+        console.log(`[API /products] SQL query:`, query);
+        console.log(`[API /products] SQL params:`, params);
+        
+        // Проверяем, почему товар не попал в результаты
+        if (!includeHidden && burritoInDb.isHidden) {
+          console.log(`[API /products] === BURRITO PRODUCT (ID 883) IS HIDDEN ===`);
+        }
+        if (stockFilter !== "all") {
+          console.log(`[API /products] === BURRITO PRODUCT (ID 883) MAY BE FILTERED BY STOCK ===`);
+          console.log(`[API /products] Product stock: ${burritoInDb.stock}, Filter: ${stockFilter}`);
+        }
+        if (categoryId && burritoInDb.categoryId !== categoryId) {
+          console.log(`[API /products] === BURRITO PRODUCT (ID 883) FILTERED BY CATEGORY ===`);
+          console.log(`[API /products] Product categoryId: ${burritoInDb.categoryId}, Filter: ${categoryId}`);
+        }
+        if (q) {
+          console.log(`[API /products] === BURRITO PRODUCT (ID 883) MAY BE FILTERED BY SEARCH ===`);
+          console.log(`[API /products] Product name: ${burritoInDb.name}, Search: ${q}`);
+        }
+      } else {
+        console.log(`[API /products] === BURRITO PRODUCT (ID 883) NOT FOUND IN DB ===`);
+      }
+    } else {
+      console.log(`[API /products] === BURRITO PRODUCT (ID 883) FOUND IN SQL QUERY ===`);
+      console.log(`[API /products] Product data:`, {
+        id: burritoBeforeFilter.id,
+        name: burritoBeforeFilter.name,
+        langameId: burritoBeforeFilter.langameId,
+        isHidden: burritoBeforeFilter.isHidden,
+        stock: burritoBeforeFilter.stock,
+      });
+    }
+
     // Получаем список исключенных ID товаров из LangameSettings
     let excludedIds: number[] = [];
     try {
