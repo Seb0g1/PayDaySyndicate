@@ -62,7 +62,6 @@ export async function POST() {
           success: false,
           created: 0,
           updated: 0,
-          skippedInactive: 0,
           skippedExcluded: 0,
           total: 0,
         },
@@ -347,7 +346,6 @@ export async function POST() {
       success: true,
       created,
       updated,
-      skippedInactive,
       skippedExcluded,
       total: Array.isArray(products) ? products.length : 0,
     });
