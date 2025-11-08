@@ -30,6 +30,7 @@ export default function LangameSettingsPage() {
   const [excludedProductIds, setExcludedProductIds] = useState<number[]>([]);
   const [newExcludedId, setNewExcludedId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingExclusions, setSavingExclusions] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -73,6 +74,48 @@ export default function LangameSettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveExclusions = async () => {
+    setSavingExclusions(true);
+    try {
+      const res = await fetch("/api/langame/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apiKey: apiKey.trim(),
+          clubId: clubId.trim(),
+          enabled,
+          baseUrl: baseUrl.trim() || "https://api.langame.ru",
+          excludedProductIds,
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Ошибка сохранения исключений");
+      }
+
+      showSuccess("Исключения сохранены!");
+      mutate();
+    } catch (error: any) {
+      showError(error.message || "Ошибка сохранения исключений");
+    } finally {
+      setSavingExclusions(false);
+    }
+  };
+
+  const clearAllExclusions = () => {
+    if (excludedProductIds.length === 0) {
+      showError("Нет исключений для удаления");
+      return;
+    }
+    
+    if (!confirm(`Вы уверены, что хотите удалить все исключения (${excludedProductIds.length} товаров)?`)) {
+      return;
+    }
+    
+    setExcludedProductIds([]);
   };
 
   if (!isDirector) {
@@ -180,7 +223,15 @@ export default function LangameSettingsPage() {
 
         {excludedProductIds.length > 0 && (
           <div className="space-y-2">
-            <label className="block text-sm text-white">Исключенные ID товаров:</label>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm text-white">Исключенные ID товаров ({excludedProductIds.length}):</label>
+              <button
+                onClick={clearAllExclusions}
+                className="text-sm text-red-400 hover:text-red-300 underline"
+              >
+                Удалить все
+              </button>
+            </div>
             <div className="flex flex-wrap gap-2">
               {excludedProductIds.map((id) => (
                 <span
@@ -193,6 +244,7 @@ export default function LangameSettingsPage() {
                       setExcludedProductIds(excludedProductIds.filter((exId) => exId !== id));
                     }}
                     className="text-red-400 hover:text-red-300 ml-1"
+                    title="Удалить из списка (не забудьте сохранить)"
                   >
                     ×
                   </button>
@@ -205,6 +257,25 @@ export default function LangameSettingsPage() {
         {excludedProductIds.length === 0 && (
           <p className="text-sm text-gray-400 italic">Нет исключенных товаров</p>
         )}
+
+        <div className="flex gap-2">
+          <button
+            onClick={saveExclusions}
+            disabled={savingExclusions}
+            className="flex-1 btn-primary"
+          >
+            {savingExclusions ? "Сохранение..." : "Сохранить исключения"}
+          </button>
+          {excludedProductIds.length > 0 && (
+            <button
+              onClick={clearAllExclusions}
+              disabled={savingExclusions}
+              className="btn-secondary"
+            >
+              Удалить все
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="card p-6">
