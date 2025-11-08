@@ -124,11 +124,36 @@ export async function POST(req: Request) {
           continue; // Пропускаем этот файл, продолжаем с другими
         }
 
+        console.log(`[API /products/import] Processing ${rows.length} rows from file ${file.name}`);
+        let skippedRows = 0;
+        let processedRows = 0;
+        
         for (let i = 0; i < rows.length; i++) {
           try {
             const r = rows[i] || [];
             const name = (r[IDX_NAME] || "").toString().trim();
-            if (!name || name.toLowerCase() === "название" || name.toLowerCase().includes("наименование")) continue;
+            
+            // Логируем первые несколько строк для отладки
+            if (i < 5) {
+              console.log(`[API /products/import] Row ${i}: name="${name}", price="${r[IDX_PRICE]}", category="${r[IDX_CATEGORY]}", stock="${r[IDX_STOCK]}"`);
+            }
+            
+            // Более гибкая проверка заголовков
+            const nameLower = name.toLowerCase();
+            if (!name || 
+                nameLower === "название" || 
+                nameLower === "наименование" ||
+                nameLower === "name" ||
+                nameLower === "product" ||
+                nameLower === "товар" ||
+                nameLower.startsWith("название") ||
+                nameLower.startsWith("наименование")) {
+              if (i < 5) {
+                console.log(`[API /products/import] Skipping row ${i}: appears to be header or empty, name="${name}"`);
+              }
+              skippedRows++;
+              continue;
+            }
             
             // Добавляем название в список импортированных (нормализованное для сравнения)
             importedProductNames.add(name.toLowerCase());
@@ -136,6 +161,10 @@ export async function POST(req: Request) {
             const price = parseNumber(r[IDX_PRICE]) ?? 0;
             const catNameRaw = (r[IDX_CATEGORY] || "").toString().trim();
             const stock = Math.max(0, Math.floor(parseNumber(r[IDX_STOCK]) ?? 0));
+            
+            if (i < 5) {
+              console.log(`[API /products/import] Row ${i} parsed: name="${name}", price=${price}, category="${catNameRaw}", stock=${stock}`);
+            }
 
             // создаём/ищем основную категорию (только для новых товаров)
             let categoryId: string | undefined = undefined;
@@ -166,11 +195,13 @@ export async function POST(req: Request) {
                   } 
                 });
                 updated++;
+                processedRows++;
               } else {
                 await prisma.product.create({ 
                   data: { name, price, stock, categoryId, lastImportedAt: new Date() } 
                 });
                 created++;
+                processedRows++;
               }
             } catch (error: any) {
               console.error(`[API /products/import] Error processing product "${name}":`, error);
@@ -186,7 +217,7 @@ export async function POST(req: Request) {
           }
         }
         
-        console.log(`[API /products/import] File ${file.name} processed successfully`);
+        console.log(`[API /products/import] File ${file.name} processed: total rows=${rows.length}, skipped=${skippedRows}, processed=${processedRows}, created=${created}, updated=${updated}`);
       } catch (error: any) {
         console.error(`[API /products/import] Error processing file ${file.name}:`, error);
         console.error(`[API /products/import] Error stack:`, error?.stack);
