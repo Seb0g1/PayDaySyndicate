@@ -265,7 +265,61 @@ check_success "PM2 настроен"
 # Шаг 12: Настройка Nginx
 echo -e "\n${YELLOW}[12/12] Настройка Nginx...${NC}"
 
-cat > /etc/nginx/sites-available/salary-manager <<EOF
+# Проверяем, есть ли SSL сертификат
+SSL_CERT_EXISTS=false
+if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+    SSL_CERT_EXISTS=true
+    echo -e "${GREEN}✓ SSL сертификат уже существует${NC}"
+fi
+
+# Сначала настраиваем Nginx без SSL (для получения сертификата)
+if [ "$SSL_CERT_EXISTS" = false ]; then
+    echo -e "${YELLOW}Настройка Nginx без SSL (для получения сертификата)...${NC}"
+    cat > /etc/nginx/sites-available/salary-manager <<EOF
+server {
+    listen 80;
+    server_name $DOMAIN;
+
+    # Увеличенные размеры для загрузки файлов
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+    }
+
+    # Статические файлы
+    location /_next/static {
+        proxy_pass http://localhost:3000;
+        proxy_cache_valid 200 60m;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Загруженные файлы
+    location /uploads {
+        alias $PROJECT_DIR/public/uploads;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Для Let's Encrypt
+    location ~ /.well-known/acme-challenge {
+        allow all;
+        root /var/www/html;
+    }
+}
+EOF
+else
+    # Настраиваем Nginx с SSL
+    echo -e "${YELLOW}Настройка Nginx с SSL...${NC}"
+    cat > /etc/nginx/sites-available/salary-manager <<EOF
 server {
     listen 80;
     server_name $DOMAIN;
@@ -313,6 +367,7 @@ server {
     }
 }
 EOF
+fi
 
 # Создаем симлинк если его нет
 ln -sf /etc/nginx/sites-available/salary-manager /etc/nginx/sites-enabled/salary-manager
@@ -324,17 +379,27 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 check_success "Конфигурация Nginx проверена"
 
-# Получаем SSL сертификат если его нет
-if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-    echo -e "${YELLOW}Получение SSL сертификата...${NC}"
-    certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email admin@24cybersyndicate.ru || {
-        echo -e "${YELLOW}Предупреждение: SSL сертификат не получен. Настройте вручную.${NC}"
-    }
-fi
-
 # Перезагружаем Nginx
 systemctl reload nginx
-check_success "Nginx настроен и перезагружен"
+check_success "Nginx перезагружен"
+
+# Получаем SSL сертификат если его нет
+if [ "$SSL_CERT_EXISTS" = false ]; then
+    echo -e "${YELLOW}Получение SSL сертификата...${NC}"
+    certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email admin@24cybersyndicate.ru --redirect || {
+        echo -e "${YELLOW}Предупреждение: SSL сертификат не получен. Настройте вручную позже.${NC}"
+        echo -e "${YELLOW}Вы можете получить сертификат вручную командой:${NC}"
+        echo -e "${YELLOW}certbot --nginx -d $DOMAIN${NC}"
+    }
+    
+    # Если сертификат получен, перезагружаем Nginx с SSL конфигурацией
+    if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+        echo -e "${GREEN}✓ SSL сертификат получен, настраиваем HTTPS...${NC}"
+        # Certbot автоматически обновит конфигурацию Nginx
+        systemctl reload nginx
+        check_success "Nginx настроен с SSL"
+    fi
+fi
 
 # Создаем директорию для загрузок
 mkdir -p "$PROJECT_DIR/public/uploads/stamps"
