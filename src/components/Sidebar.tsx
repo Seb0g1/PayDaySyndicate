@@ -114,7 +114,7 @@ function visibleKeysByRole(role: Role): readonly string[] {
       return ["home", "debts", "tasks", "memos", "lostItems", "reports", "notifications", "profile"];
     case "EMPLOYEE":
     default:
-      return ["home", "debts", "tasks", "memos", "lostItems", "reports", "notifications", "profile"];
+      return ["home", "salaries", "debts", "tasks", "memos", "lostItems", "reports", "notifications", "profile"];
   }
 }
 
@@ -183,6 +183,13 @@ export default function Sidebar() {
     allowedKeys = ["home", "debts", "tasks", "memos", "lostItems", "reports", "notifications", "profile"];
   } else if (customRoleName === "Seniour_Admin") {
     allowedKeys = ["home", "shifts", "salaries", "debts", "reports", "tasks", "memos", "lostItems", "productOrder", "payments", "notifications", "profile"];
+  }
+  
+  // Для обычных сотрудников (EMPLOYEE) всегда показываем зарплаты
+  if (role === "EMPLOYEE" && !customRoleName) {
+    if (!allowedKeys.includes("salaries")) {
+      allowedKeys = [...allowedKeys, "salaries"];
+    }
   }
   
   const allowed = new Set(allowedKeys);

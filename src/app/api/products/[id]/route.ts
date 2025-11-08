@@ -28,10 +28,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (parsed.data.category !== undefined) updateData.category = parsed.data.category;
   if (parsed.data.subcategory !== undefined) updateData.subcategory = parsed.data.subcategory;
   if (parsed.data.stock !== undefined) updateData.stock = parsed.data.stock;
-  if (parsed.data.categoryId !== undefined) updateData.categoryId = parsed.data.categoryId;
+  // Обрабатываем categoryId правильно - может быть null для удаления категории
+  if (parsed.data.categoryId !== undefined) {
+    updateData.categoryId = parsed.data.categoryId || null;
+  }
   if (parsed.data.isHidden !== undefined) updateData.isHidden = parsed.data.isHidden;
   
+  console.log(`[API /products/[id]] Updating product ${id} with data:`, updateData);
+  
   const updated = await prisma.product.update({ where: { id }, data: updateData });
+  
+  console.log(`[API /products/[id]] Product ${id} updated successfully`);
+  
   return NextResponse.json(updated);
 }
 
