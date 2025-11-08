@@ -105,7 +105,7 @@ export default function LangameSettingsPage() {
     }
   };
 
-  const clearAllExclusions = () => {
+  const clearAllExclusions = async () => {
     if (excludedProductIds.length === 0) {
       showError("Нет исключений для удаления");
       return;
@@ -116,6 +116,38 @@ export default function LangameSettingsPage() {
     }
     
     setExcludedProductIds([]);
+    
+    // Сохраняем изменения в базу данных
+    setSavingExclusions(true);
+    try {
+      const res = await fetch("/api/langame/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apiKey: apiKey.trim(),
+          clubId: clubId.trim(),
+          enabled,
+          baseUrl: baseUrl.trim() || "https://api.langame.ru",
+          excludedProductIds: [],
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Ошибка удаления исключений");
+      }
+
+      showSuccess("Все исключения удалены!");
+      mutate();
+    } catch (error: any) {
+      showError(error.message || "Ошибка удаления исключений");
+      // Восстанавливаем список при ошибке
+      if (settings) {
+        setExcludedProductIds(settings.excludedProductIds || []);
+      }
+    } finally {
+      setSavingExclusions(false);
+    }
   };
 
   if (!isDirector) {
