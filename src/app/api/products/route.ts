@@ -6,66 +6,126 @@ import { z } from "zod";
 const schema = z.object({ name: z.string().min(1), price: z.number().positive(), category: z.string().optional(), categoryId: z.string().optional() });
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const q = searchParams.get("q")?.trim();
-  const categoryId = searchParams.get("categoryId")?.trim() || undefined;
-  const sort = searchParams.get("sort") || "name"; // name | price
-  const dir = (searchParams.get("dir") || "asc").toLowerCase() === "desc" ? "desc" : "asc";
-  const stockFilter = searchParams.get("stockFilter") || "all";
-
-  const where: any = {};
-  if (categoryId) where.categoryId = categoryId;
-  if (q) where.name = { contains: q, mode: "insensitive" };
-  // По умолчанию показываем только не скрытые товары
-  const includeHidden = searchParams.get("includeHidden") === "true";
-  if (!includeHidden) {
-    where.isHidden = false;
-  }
-
-  // Фильтр по остаткам
-  if (stockFilter !== "all") {
-    switch (stockFilter) {
-      case "out":
-        where.stock = 0;
-        break;
-      case "low":
-        where.stock = { gte: 1, lte: 5 };
-        break;
-      case "medium":
-        where.stock = { gte: 6, lte: 15 };
-        break;
-      case "high":
-        where.stock = { gte: 16 };
-        break;
-    }
-  }
-
-  // Получаем список исключенных ID товаров из LangameSettings
   try {
-    // Проверяем, существует ли таблица LangameSettings
-    const tableExists = await prisma.$queryRaw`
-      SELECT 1 FROM information_schema.tables 
-      WHERE table_name = 'LangameSettings' 
-      LIMIT 1;
-    ` as any[];
-    
-    if (tableExists && tableExists.length > 0) {
-      const langameSettings = await prisma.langameSettings.findFirst();
-      if (langameSettings?.excludedProductIds && langameSettings.excludedProductIds.length > 0) {
-        // Исключаем товары с ID из списка исключений
-        where.NOT = {
-          langameId: { in: langameSettings.excludedProductIds },
-        };
+    const { searchParams } = new URL(req.url);
+    const q = searchParams.get("q")?.trim();
+    const categoryId = searchParams.get("categoryId")?.trim() || undefined;
+    const sort = searchParams.get("sort") || "name"; // name | price
+    const dir = (searchParams.get("dir") || "asc").toLowerCase() === "desc" ? "desc" : "asc";
+    const stockFilter = searchParams.get("stockFilter") || "all";
+    const includeHidden = searchParams.get("includeHidden") === "true";
+
+    // Строим SQL запрос
+    let query = `
+      SELECT 
+        p.id,
+        p.name,
+        p.price,
+        p.stock,
+        p."isHidden",
+        p."categoryId",
+        p."langameId",
+        p."lastImportedAt",
+        p."subcategory",
+        c.name as "categoryName"
+      FROM "Product" p
+      LEFT JOIN "Category" c ON c.id = p."categoryId"
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    // Фильтр по категории
+    if (categoryId) {
+      query += ` AND p."categoryId" = $${paramIndex}`;
+      params.push(categoryId);
+      paramIndex++;
+    }
+
+    // Фильтр по поиску
+    if (q) {
+      query += ` AND LOWER(p.name) LIKE $${paramIndex}`;
+      params.push(`%${q.toLowerCase()}%`);
+      paramIndex++;
+    }
+
+    // Фильтр по скрытым товарам
+    if (!includeHidden) {
+      query += ` AND p."isHidden" = false`;
+    }
+
+    // Фильтр по остаткам
+    if (stockFilter !== "all") {
+      switch (stockFilter) {
+        case "out":
+          query += ` AND p.stock = 0`;
+          break;
+        case "low":
+          query += ` AND p.stock >= 1 AND p.stock <= 5`;
+          break;
+        case "medium":
+          query += ` AND p.stock >= 6 AND p.stock <= 15`;
+          break;
+        case "high":
+          query += ` AND p.stock >= 16`;
+          break;
       }
     }
-  } catch (error) {
-    // Игнорируем ошибки при получении настроек
-    console.warn("Error checking LangameSettings:", error);
-  }
 
-  const orderBy: any = sort === "price" ? { price: dir } : { name: dir };
-  const products = await prisma.product.findMany({ where, orderBy, include: { categoryRef: true } });
-  return NextResponse.json(products);
+    // Сортировка
+    const sortColumn = sort === "price" ? "p.price" : "p.name";
+    query += ` ORDER BY ${sortColumn} ${dir.toUpperCase()}`;
+
+    // Выполняем запрос
+    let products = await prisma.$queryRawUnsafe(query, ...params) as any[];
+
+    // Получаем список исключенных ID товаров из LangameSettings
+    let excludedIds: number[] = [];
+    try {
+      // Проверяем, существует ли таблица LangameSettings
+      const tableExists = await prisma.$queryRaw`
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'LangameSettings' 
+        LIMIT 1;
+      ` as any[];
+      
+      if (tableExists && tableExists.length > 0) {
+        const langameSettings = await prisma.langameSettings.findFirst();
+        if (langameSettings?.excludedProductIds && langameSettings.excludedProductIds.length > 0) {
+          excludedIds = langameSettings.excludedProductIds;
+        }
+      }
+    } catch (error) {
+      // Игнорируем ошибки при получении настроек
+      console.warn("Error checking LangameSettings:", error);
+    }
+
+    // Фильтруем исключенные товары
+    if (excludedIds.length > 0) {
+      products = products.filter((p: any) => !p.langameId || !excludedIds.includes(p.langameId));
+    }
+
+    // Форматируем результат для клиента
+    const formatted = (products || []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price) || 0,
+      stock: Number(p.stock) || 0,
+      isHidden: p.isHidden || false,
+      categoryId: p.categoryId || null,
+      langameId: p.langameId || null,
+      lastImportedAt: p.lastImportedAt || null,
+      subcategory: p.subcategory || null,
+      categoryRef: p.categoryName ? { name: p.categoryName } : null,
+      category: p.categoryName || null,
+    }));
+
+    return NextResponse.json(formatted);
+  } catch (error: any) {
+    console.error("Error fetching products:", error);
+    // Возвращаем пустой массив вместо ошибки
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(req: Request) {
