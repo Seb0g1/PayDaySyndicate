@@ -564,8 +564,14 @@ export default function ProductsPage() {
                            body: JSON.stringify({ categoryId: categoryId || null }) 
                          });
                          if (!res.ok) {
-                           const error = await res.json().catch(() => ({ error: await res.text() }));
-                           showError(error.error || "Ошибка при обновлении категории");
+                           let errorText = "";
+                           try {
+                             const errorData = await res.json();
+                             errorText = errorData.error || "Ошибка при обновлении категории";
+                           } catch {
+                             errorText = await res.text() || "Ошибка при обновлении категории";
+                           }
+                           showError(errorText);
                            return;
                          }
                          showSuccess("Категория обновлена");
