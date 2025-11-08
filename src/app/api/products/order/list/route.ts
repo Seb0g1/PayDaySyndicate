@@ -89,10 +89,11 @@ export async function GET() {
       
       if (tableExists && tableExists.length > 0) {
         const langameSettings = await prisma.langameSettings.findFirst();
-        if (langameSettings?.excludedProductIds && langameSettings.excludedProductIds.length > 0) {
+        if (langameSettings?.excludedProductIds && langameSettings.excludedProductIds.length > 0 && formatted.length > 0) {
           // Получаем langameId для каждого продукта
+          const productIds = formatted.map(p => p.id);
           const productsWithLangame = await prisma.$queryRaw`
-            SELECT id, "langameId" FROM "Product" WHERE id = ANY(${formatted.map(p => p.id)}::TEXT[])
+            SELECT id, "langameId" FROM "Product" WHERE id = ANY(${productIds}::TEXT[])
           ` as any[];
           
           const langameMap = new Map(productsWithLangame.map((p: any) => [p.id, p.langameId]));
