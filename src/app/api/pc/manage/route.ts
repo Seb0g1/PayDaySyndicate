@@ -16,6 +16,20 @@ export async function POST(req: Request) {
   if (forbidden) return forbidden;
 
   try {
+    // Проверяем, существует ли таблица LangameSettings
+    const tableExists = await prisma.$queryRaw`
+      SELECT 1 FROM information_schema.tables 
+      WHERE table_name = 'LangameSettings' 
+      LIMIT 1;
+    ` as any[];
+    
+    if (!tableExists || tableExists.length === 0) {
+      return NextResponse.json(
+        { error: "Таблица LangameSettings не существует" },
+        { status: 400 }
+      );
+    }
+    
     const settings = await prisma.langameSettings.findFirst();
     if (!settings || !settings.enabled || !settings.apiKey) {
       return NextResponse.json(

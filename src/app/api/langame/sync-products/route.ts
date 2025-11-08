@@ -43,6 +43,12 @@ export async function POST() {
       clubId: settings.clubId,
       baseUrl: settings.baseUrl || undefined,
     };
+    
+    console.log("[Langame Sync] Settings:", {
+      baseUrl: langameSettings.baseUrl,
+      clubId: langameSettings.clubId,
+      apiKey: langameSettings.apiKey ? "***" : "missing",
+    });
 
     // Получаем продукты из Langame API (список с активностью)
     let products: any[];

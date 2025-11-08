@@ -50,9 +50,21 @@ export interface LangameSettings {
 export async function fetchLangameGoods(
   settings: LangameSettings
 ): Promise<LangameGoodsResponse[]> {
-  const baseUrl = (settings.baseUrl || "https://api.langame.ru").replace(/\/$/, ""); // Убираем завершающий слеш если есть
+  // Обрабатываем baseUrl: если он содержит /public_api, используем его как есть
+  // Иначе добавляем /public_api если его нет
+  let baseUrl = settings.baseUrl || "https://api.langame.ru";
+  baseUrl = baseUrl.replace(/\/$/, ""); // Убираем завершающий слеш если есть
+  
+  // Если baseUrl уже содержит /public_api, используем его как есть
+  // Иначе добавляем /public_api
+  if (!baseUrl.includes("/public_api")) {
+    baseUrl = `${baseUrl}/public_api`;
+  }
+  
   const url = new URL(`${baseUrl}/goods/list`);
   url.searchParams.set("club_id", settings.clubId);
+
+  console.log(`[Langame API] Fetching goods from: ${url.toString()}`);
 
   const response = await fetch(url.toString(), {
     method: "GET",
@@ -64,6 +76,7 @@ export async function fetchLangameGoods(
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[Langame API] Error fetching goods: ${response.status} ${response.statusText}`, errorText);
     throw new Error(`Langame API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
@@ -91,8 +104,20 @@ export async function fetchLangameGoods(
 export async function fetchLangameProducts(
   settings: LangameSettings
 ): Promise<LangameProductsResponse[]> {
-  const baseUrl = (settings.baseUrl || "https://api.langame.ru").replace(/\/$/, ""); // Убираем завершающий слеш если есть
+  // Обрабатываем baseUrl: если он содержит /public_api, используем его как есть
+  // Иначе добавляем /public_api если его нет
+  let baseUrl = settings.baseUrl || "https://api.langame.ru";
+  baseUrl = baseUrl.replace(/\/$/, ""); // Убираем завершающий слеш если есть
+  
+  // Если baseUrl уже содержит /public_api, используем его как есть
+  // Иначе добавляем /public_api
+  if (!baseUrl.includes("/public_api")) {
+    baseUrl = `${baseUrl}/public_api`;
+  }
+  
   const url = `${baseUrl}/products/list`;
+
+  console.log(`[Langame API] Fetching products from: ${url}`);
 
   const response = await fetch(url, {
     method: "GET",
@@ -105,6 +130,7 @@ export async function fetchLangameProducts(
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[Langame API] Error fetching products: ${response.status} ${response.statusText}`, errorText);
     throw new Error(`Langame API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
@@ -137,8 +163,20 @@ export async function fetchLangameProducts(
 export async function fetchLangamePCLinking(
   settings: LangameSettings
 ): Promise<LangamePCLinking[]> {
-  const baseUrl = (settings.baseUrl || "https://api.langame.ru").replace(/\/$/, ""); // Убираем завершающий слеш если есть
+  // Обрабатываем baseUrl: если он содержит /public_api, используем его как есть
+  // Иначе добавляем /public_api если его нет
+  let baseUrl = settings.baseUrl || "https://api.langame.ru";
+  baseUrl = baseUrl.replace(/\/$/, ""); // Убираем завершающий слеш если есть
+  
+  // Если baseUrl уже содержит /public_api, используем его как есть
+  // Иначе добавляем /public_api
+  if (!baseUrl.includes("/public_api")) {
+    baseUrl = `${baseUrl}/public_api`;
+  }
+  
   const url = `${baseUrl}/global/linking_pc_by_type/list`;
+
+  console.log(`[Langame API] Fetching PC linking from: ${url}`);
 
   const response = await fetch(url, {
     method: "GET",
@@ -150,6 +188,7 @@ export async function fetchLangamePCLinking(
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[Langame API] Error fetching PC linking: ${response.status} ${response.statusText}`, errorText);
     throw new Error(`Langame API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
@@ -177,8 +216,20 @@ export async function fetchLangamePCLinking(
 export async function fetchLangamePCTypes(
   settings: LangameSettings
 ): Promise<LangamePCTypes[]> {
-  const baseUrl = (settings.baseUrl || "https://api.langame.ru").replace(/\/$/, ""); // Убираем завершающий слеш если есть
+  // Обрабатываем baseUrl: если он содержит /public_api, используем его как есть
+  // Иначе добавляем /public_api если его нет
+  let baseUrl = settings.baseUrl || "https://api.langame.ru";
+  baseUrl = baseUrl.replace(/\/$/, ""); // Убираем завершающий слеш если есть
+  
+  // Если baseUrl уже содержит /public_api, используем его как есть
+  // Иначе добавляем /public_api
+  if (!baseUrl.includes("/public_api")) {
+    baseUrl = `${baseUrl}/public_api`;
+  }
+  
   const url = `${baseUrl}/global/types_of_pc_in_clubs/list`;
+
+  console.log(`[Langame API] Fetching PC types from: ${url}`);
 
   const response = await fetch(url, {
     method: "GET",
@@ -190,6 +241,7 @@ export async function fetchLangamePCTypes(
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[Langame API] Error fetching PC types: ${response.status} ${response.statusText}`, errorText);
     throw new Error(`Langame API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
@@ -228,7 +280,17 @@ export async function managePC(
   settings: LangameSettings,
   request: PCManageRequest
 ): Promise<any> {
-  const baseUrl = (settings.baseUrl || "https://api.langame.ru").replace(/\/$/, ""); // Убираем завершающий слеш если есть
+  // Обрабатываем baseUrl: если он содержит /public_api, используем его как есть
+  // Иначе добавляем /public_api если его нет
+  let baseUrl = settings.baseUrl || "https://api.langame.ru";
+  baseUrl = baseUrl.replace(/\/$/, ""); // Убираем завершающий слеш если есть
+  
+  // Если baseUrl уже содержит /public_api, используем его как есть
+  // Иначе добавляем /public_api
+  if (!baseUrl.includes("/public_api")) {
+    baseUrl = `${baseUrl}/public_api`;
+  }
+  
   // Endpoint может быть другим, нужно проверить в документации API
   // Пока используем предполагаемый endpoint
   const url = `${baseUrl}/pc/manage`;
@@ -245,6 +307,8 @@ export async function managePC(
     body.uuids = request.uuids;
   }
 
+  console.log(`[Langame API] Managing PC: ${url}`, body);
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -256,6 +320,7 @@ export async function managePC(
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[Langame API] Error managing PC: ${response.status} ${response.statusText}`, errorText);
     throw new Error(`Langame API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
