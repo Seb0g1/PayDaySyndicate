@@ -27,6 +27,7 @@ export async function GET(req: Request) {
         p."langameId",
         p."lastImportedAt",
         p."subcategory",
+        p."category",
         c.name as "categoryName"
       FROM "Product" p
       LEFT JOIN "Category" c ON c.id = p."categoryId"
@@ -117,7 +118,8 @@ export async function GET(req: Request) {
       lastImportedAt: p.lastImportedAt || null,
       subcategory: p.subcategory || null,
       categoryRef: p.categoryName ? { name: p.categoryName } : null,
-      category: p.categoryName || null,
+      // category - это подкатегория/тег, независимое поле, НЕ копия названия категории
+      category: p.category || null,
     }));
 
     return NextResponse.json(formatted);
