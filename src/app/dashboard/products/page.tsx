@@ -585,6 +585,7 @@ export default function ProductsPage() {
                  <td className="p-2">
                    <InlineSubEditor value={p.category ?? ""} onSave={async (v) => {
                      try {
+                       console.log(`[Frontend] Updating subcategory for product ${p.id}, new value:`, v);
                        const res = await fetch(`/api/products/${p.id}`, { 
                          method: "PATCH", 
                          headers: { "Content-Type": "application/json" }, 
@@ -598,12 +599,28 @@ export default function ProductsPage() {
                          } catch {
                            errorText = await res.text() || "Ошибка при обновлении подкатегории";
                          }
+                         console.error(`[Frontend] Error updating subcategory:`, errorText);
                          showError(errorText);
                          return;
                        }
+                       const updatedProduct = await res.json();
+                       console.log(`[Frontend] Subcategory updated successfully:`, updatedProduct);
+                       
+                       // Оптимистично обновляем данные
+                       mutate((currentData: Product[] | undefined) => {
+                         if (!currentData) return currentData;
+                         return currentData.map(item => 
+                           item.id === p.id 
+                             ? { ...item, category: updatedProduct.category }
+                             : item
+                         );
+                       }, false);
+                       
                        showSuccess("Подкатегория обновлена");
+                       // Также делаем полную перезагрузку для надежности
                        mutate();
                      } catch (error: any) {
+                       console.error(`[Frontend] Error updating subcategory:`, error);
                        showError("Ошибка при обновлении подкатегории");
                      }
                    }} />
@@ -668,6 +685,7 @@ export default function ProductsPage() {
                             <label className="block text-xs text-gray-400 mb-1">Подкатегория:</label>
                             <InlineSubEditor value={p.category ?? ""} onSave={async (v) => {
                               try {
+                                console.log(`[Frontend] Updating subcategory for product ${p.id}, new value:`, v);
                                 const res = await fetch(`/api/products/${p.id}`, { 
                                   method: "PATCH", 
                                   headers: { "Content-Type": "application/json" }, 
@@ -681,12 +699,28 @@ export default function ProductsPage() {
                                   } catch {
                                     errorText = await res.text() || "Ошибка при обновлении подкатегории";
                                   }
+                                  console.error(`[Frontend] Error updating subcategory:`, errorText);
                                   showError(errorText);
                                   return;
                                 }
+                                const updatedProduct = await res.json();
+                                console.log(`[Frontend] Subcategory updated successfully:`, updatedProduct);
+                                
+                                // Оптимистично обновляем данные
+                                mutate((currentData: Product[] | undefined) => {
+                                  if (!currentData) return currentData;
+                                  return currentData.map(item => 
+                                    item.id === p.id 
+                                      ? { ...item, category: updatedProduct.category }
+                                      : item
+                                  );
+                                }, false);
+                                
                                 showSuccess("Подкатегория обновлена");
+                                // Также делаем полную перезагрузку для надежности
                                 mutate();
                               } catch (error: any) {
+                                console.error(`[Frontend] Error updating subcategory:`, error);
                                 showError("Ошибка при обновлении подкатегории");
                               }
                             }} />
