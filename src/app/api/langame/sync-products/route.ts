@@ -333,9 +333,11 @@ export async function POST() {
           // Обновляем остаток
           // Цену НЕ обновляем из API, если она уже установлена вручную (не 0)
           // Это позволяет пользователю устанавливать цены вручную, и они будут сохраняться
+          // isHidden НЕ обновляем - сохраняем текущее значение
           const updateData: any = {
             stock: stock,
             lastImportedAt: new Date(),
+            // Явно НЕ устанавливаем isHidden, чтобы не скрывать товар
           };
           
           // Обновляем цену только если:
@@ -426,6 +428,7 @@ export async function POST() {
                 stock: stock,
                 langameId: product.id,
                 lastImportedAt: new Date(),
+                isHidden: false, // Явно устанавливаем isHidden = false для новых товаров
               },
             });
             created++;
