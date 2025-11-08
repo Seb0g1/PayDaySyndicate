@@ -4,6 +4,7 @@ import { getAuth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { notifyBonus } from "@/lib/telegram";
+import { createNotificationForEmployee } from "@/lib/notifications";
 
 export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -47,6 +48,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         topicId: settings.topicBonus || undefined,
       });
     }
+
+    // Создаем уведомление для сотрудника
+    await createNotificationForEmployee(created.shift.employeeId, {
+      type: "bonus",
+      title: "Новый бонус",
+      message: `Вам начислен бонус ${Number(parsed.data.amount).toFixed(2)} ₽. Причина: ${parsed.data.reason}`,
+      link: `/dashboard/shifts`,
+    });
   } catch (telegramError) {
     console.error("Failed to send Telegram notification:", telegramError);
     // Не прерываем выполнение из-за ошибки уведомления

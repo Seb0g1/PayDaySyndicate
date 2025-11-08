@@ -12,6 +12,7 @@ import {
   notifyVatInvoiceReport,
   getTopicIdForReportType 
 } from "@/lib/telegram";
+import { createNotificationForEmployee, createNotificationForDirectors } from "@/lib/notifications";
 
 const reportUpdateSchema = z.object({
   type: z.enum(["FINANCIAL", "HOOKAH", "CORK_FEE", "TABLE_STATUS", "PROMOTION", "PLAYSTATION", "VAT_INVOICE"]).optional(),
@@ -137,6 +138,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
             topicId,
             photoUrls,
           });
+
+          // Создаем уведомление для директоров
+          if (updated.employeeId) {
+            await createNotificationForDirectors({
+              type: "report",
+              title: "Новый финансовый отчет",
+              message: `${user.name} добавил финансовый отчет${shiftDate ? ` за ${new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }).format(shiftDate)}` : ""}`,
+              link: `/dashboard/reports/edit/${updated.id}`,
+            });
+          }
         } else if (updated.type === "CORK_FEE") {
           const amountValue = updated.amount || reportData.amount;
           const category = reportData.category;
@@ -165,8 +176,30 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
             topicId,
             photoUrls,
           });
+
+          // Создаем уведомление для директоров
+          if (updated.employeeId) {
+            await createNotificationForDirectors({
+              type: "report",
+              title: "Новый отчет о кальянах",
+              message: `${user.name} добавил отчет о кальянах${shiftDate ? ` за ${new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }).format(shiftDate)}` : ""}`,
+              link: `/dashboard/reports/edit/${updated.id}`,
+            });
+          }
         } else if (updated.type === "TABLE_STATUS") {
           const shiftDate = updated.shift?.date ? new Date(updated.shift.date) : undefined;
+          const photoCategories = reportData.photoCategories || {};
+          
+          // Формируем photoCategories с полными путями для Telegram
+          const photoCategoriesWithPaths: Record<string, string[]> = {};
+          for (const [category, files] of Object.entries(photoCategories)) {
+            if (Array.isArray(files)) {
+              photoCategoriesWithPaths[category] = files.map((file: string) => {
+                // file уже содержит category/fileName, добавляем reportId
+                return `/uploads/${updated.id}/${file}`;
+              });
+            }
+          }
           
           await notifyTableStatusReport({
             botToken: settings.botToken,
@@ -175,8 +208,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
             telegramTag: updated.employee?.telegramTag || undefined,
             shiftDate,
             topicId,
-            photoUrls,
+            photoCategories: photoCategoriesWithPaths,
           });
+
+          // Создаем уведомление для директоров
+          if (updated.employeeId) {
+            await createNotificationForDirectors({
+              type: "report",
+              title: "Новый отчет о состоянии столов",
+              message: `${user.name} добавил отчет о состоянии столов${shiftDate ? ` за ${new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }).format(shiftDate)}` : ""}`,
+              link: `/dashboard/reports/edit/${updated.id}`,
+            });
+          }
         } else if (updated.type === "PROMOTION") {
           await notifyPromotionReport({
             botToken: settings.botToken,

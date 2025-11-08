@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useLoading } from "@/components/LoadingProvider";
 
 export default function Home() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [now, setNow] = useState<Date | null>(null);
   const { start } = useLoading();
@@ -13,16 +13,19 @@ export default function Home() {
   useEffect(() => {
     setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 1000);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        start();
-        if ((session as any)?.user) router.push("/dashboard");
-        else router.push("/login");
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => { clearInterval(t); window.removeEventListener("keydown", onKey); };
-  }, [session, start, router]);
+    return () => { clearInterval(t); };
+  }, []);
+
+  // Автоматический редирект при загрузке страницы
+  useEffect(() => {
+    if (status === "loading") return; // Ждем загрузки сессии
+    
+    if ((session as any)?.user) {
+      router.push("/dashboard");
+    } else {
+      router.push("/login");
+    }
+  }, [session, status, router]);
 
   const go = () => {
     start();

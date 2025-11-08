@@ -127,7 +127,22 @@ export async function GET(req: Request) {
     const debts = await prisma.debt.findMany({ where: { employeeId: e.id, date: { gte: start, lte: end } }, include: { product: true } });
     const debtAmount = debts.reduce((acc: number, d: any) => acc + Number(d.amount), 0);
 
-    const shortages = await prisma.shortage.findMany({ where: { assignedToEmployeeId: e.id, createdAt: { gte: start, lte: end } } });
+    const shortages = await prisma.shortage.findMany({ 
+      where: { 
+        assignedToEmployeeId: e.id, 
+        createdAt: { gte: start, lte: end },
+        excludedFromSalary: false, // Исключаем недостачи, помеченные как неактивные
+        OR: [
+          { inventoryCount: null }, // Недостачи без связи с пересчетом
+          { inventoryCount: { archived: false } }, // Или из неархивированных пересчетов
+        ],
+      },
+      include: {
+        inventoryCount: {
+          select: { archived: true },
+        },
+      },
+    });
     let shortageAmt = shortages.reduce((acc: number, s: any) => acc + Number(s.price) * Math.max(0, s.countSystem - s.countActual), 0);
     // Распределяем недостачи среди выбранных сотрудников
     const unassignedShare = employeeIdsForSharing.includes(e.id) ? unassignedSum / divisor : 0;

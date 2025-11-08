@@ -17,14 +17,22 @@ export default function DebtsPage() {
   const { data: session } = useSession();
   const { showSuccess } = useSuccess();
   const role = ((session as any)?.user as any)?.role as string | undefined;
-  const isDirector = role === "DIRECTOR";
   const { data: me } = useSWR<any>("/api/me", fetcher);
   const myEmployeeId = me?.employeeId as string | undefined;
+  const customRoleName = me?.customRole?.name as string | undefined;
+  
+  // Проверяем права на основе системной роли и кастомной роли
+  const isDirector = role === "DIRECTOR" || role === "OWNER";
+  const isSeniorAdmin = customRoleName === "Seniour_Admin";
+  // Только DIRECTOR может создавать долги для всех, остальные только для себя
+  const canCreateDebtsForAll = isDirector;
+  const isRegularEmployee = !isDirector && !isSeniorAdmin; // Обычный сотрудник (Admin)
 
   const { data: employees } = useSWR<Employee[]>("/api/employees", fetcher);
   const { data: products } = useSWR<Product[]>("/api/products", fetcher);
   const { data: categories } = useSWR<Category[]>("/api/categories", fetcher);
-  const { data, mutate } = useSWR<Debt[]>(isDirector ? "/api/debts" : (myEmployeeId ? `/api/debts?employeeId=${myEmployeeId}` : null), fetcher);
+  // API автоматически фильтрует долги по правам пользователя
+  const { data, mutate } = useSWR<Debt[]>("/api/debts", fetcher);
   const [employeeId, setEmployeeId] = useState("");
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -34,9 +42,13 @@ export default function DebtsPage() {
   const [filterByEmployee, setFilterByEmployee] = useState<string>(""); // Фильтр по сотруднику
 
   const employeeOptions = useMemo(() => {
-    if (isDirector) return employees ?? [];
-    return (employees ?? []).filter((e) => e.id === myEmployeeId);
-  }, [employees, isDirector, myEmployeeId]);
+    if (canCreateDebtsForAll) return employees ?? [];
+    // Для обычных сотрудников и старшего админа показываем только себя
+    if (myEmployeeId) {
+      return (employees ?? []).filter((e) => e.id === myEmployeeId);
+    }
+    return [];
+  }, [employees, canCreateDebtsForAll, myEmployeeId]);
 
   const filteredProducts = useMemo(() => {
     return (products ?? []).filter((p) => {
@@ -46,7 +58,14 @@ export default function DebtsPage() {
     });
   }, [products, categoryId, q]);
 
-  useEffect(() => { if (!employeeId && employeeOptions?.[0]) setEmployeeId(employeeOptions[0].id); }, [employeeOptions]);
+  // Автоматически устанавливаем employeeId для обычных сотрудников
+  useEffect(() => {
+    if (isRegularEmployee && myEmployeeId && !employeeId) {
+      setEmployeeId(myEmployeeId);
+    } else if (!employeeId && employeeOptions?.[0]) {
+      setEmployeeId(employeeOptions[0].id);
+    }
+  }, [employeeOptions, myEmployeeId, isRegularEmployee, employeeId]);
   useEffect(() => { if (!productId && products?.[0]) setProductId(products[0].id); }, [products]);
   
   // Reset productId when filters change if current product is not in filtered list
@@ -66,11 +85,11 @@ export default function DebtsPage() {
     mutate();
   };
 
-  // Фильтруем долги по выбранному сотруднику
+  // Фильтруем долги по выбранному сотруднику (только для директоров и старших админов)
   const filteredDebts = useMemo(() => {
-    if (!filterByEmployee) return data ?? [];
+    if (!canCreateDebtsForAll || !filterByEmployee) return data ?? [];
     return (data ?? []).filter(d => d.employeeId === filterByEmployee);
-  }, [data, filterByEmployee]);
+  }, [data, filterByEmployee, canCreateDebtsForAll]);
 
   // Подсчитываем общую сумму отфильтрованных долгов
   const totalAmount = useMemo(() => {
@@ -80,7 +99,7 @@ export default function DebtsPage() {
   return (
     <div className="space-y-4">
       {/* Кнопки для фильтрации по сотрудникам */}
-      {isDirector && (
+      {canCreateDebtsForAll && (
         <div className="card p-3">
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-white font-semibold text-sm mr-2">Фильтр по сотруднику:</span>
@@ -117,7 +136,7 @@ export default function DebtsPage() {
       )}
       
       <div className="card p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2">
-        <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="border rounded px-2 py-1" disabled={!isDirector}>
+        <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="border rounded px-2 py-1" disabled={!canCreateDebtsForAll}>
           {employeeOptions.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
         </select>
         <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="border rounded px-2 py-1">

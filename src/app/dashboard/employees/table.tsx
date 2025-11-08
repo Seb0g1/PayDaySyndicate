@@ -1,6 +1,6 @@
 "use client";
 import useSWR from "swr";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNextIcons } from "@/components/NI";
 import { useSuccess } from "@/components/SuccessProvider";
 
@@ -13,6 +13,16 @@ type Employee = {
   payRate: number | string;
   payUnit: "HOURLY" | "DAILY";
   role: "CASHIER" | "MANAGER" | "STOCKER" | "OTHER";
+  userRole?: "DIRECTOR" | "SENIOR_ADMIN" | "ADMIN" | "EMPLOYEE" | null;
+  user?: {
+    id: string;
+    role: "DIRECTOR" | "SENIOR_ADMIN" | "ADMIN" | "EMPLOYEE";
+  } | null;
+  permissions?: Array<{
+    id: string;
+    permission: string;
+    granted: boolean;
+  }>;
 };
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -20,11 +30,11 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export default function EmployeesClient() {
   const NI = useNextIcons();
   const [q, setQ] = useState("");
-  const [role, setRole] = useState("");
-  const { data, mutate, isLoading } = useSWR<Employee[]>(`/api/employees?q=${encodeURIComponent(q)}&role=${role}`, fetcher);
+  const { data, mutate, isLoading } = useSWR<Employee[]>(`/api/employees?q=${encodeURIComponent(q)}`, fetcher);
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
+  const [showPermissions, setShowPermissions] = useState<Employee | null>(null);
 
   const list = useMemo(() => data ?? [], [data]);
 
@@ -36,16 +46,6 @@ export default function EmployeesClient() {
           <div className="flex-1">
             <label className="block text-xs mb-1" style={{ color: "rgba(255, 255, 255, 0.7)" }}>Поиск</label>
             <input value={q} onChange={(e) => setQ(e.target.value)} className="border rounded px-2 py-1 w-full" placeholder="Имя или эл. почта" />
-          </div>
-          <div className="flex-1 sm:flex-initial">
-            <label className="block text-xs mb-1" style={{ color: "rgba(255, 255, 255, 0.7)" }}>Роль</label>
-            <select value={role} onChange={(e) => setRole(e.target.value)} className="border rounded px-2 py-1 w-full">
-              <option value="">Все</option>
-              <option>CASHIER</option>
-              <option>MANAGER</option>
-              <option>STOCKER</option>
-              <option>OTHER</option>
-            </select>
           </div>
           <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary whitespace-nowrap">Добавить сотрудника</button>
         </div>
@@ -61,13 +61,13 @@ export default function EmployeesClient() {
               <th className="p-3 text-white font-semibold">Телефон</th>
               <th className="p-3 text-white font-semibold">Дата приёма</th>
               <th className="p-3 text-white font-semibold">Ставка</th>
-              <th className="p-3 text-white font-semibold">Роль</th>
+              <th className="p-3 text-white font-semibold">Роль пользователя</th>
               <th className="p-3 text-white font-semibold">Действия</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td className="p-3 text-white" colSpan={7}>Загрузка...</td></tr>
+              <tr><td className="p-3 text-white" colSpan={6}>Загрузка...</td></tr>
             )}
             {!isLoading && list.map((e) => (
               <>
@@ -78,12 +78,15 @@ export default function EmployeesClient() {
                   <td className="p-3 text-gray-300">{e.phone ?? "—"}</td>
                   <td className="p-3 text-gray-300">{new Date(e.hireDate).toLocaleDateString("ru-RU")}</td>
                   <td className="p-3 text-gray-300">{Number(e.payRate).toFixed(2)} ₽/день</td>
-                  <td className="p-3 text-gray-300">{e.role}</td>
+                  <td className="p-3 text-gray-300">
+                    {(e as any)?.customRole?.nameRu || e.user?.role || e.userRole || "—"}
+                  </td>
                   <td className="p-3">
                     <div className="flex flex-wrap gap-2">
                       <a className="btn-ghost flex items-center gap-1" href={`/dashboard/employees/${e.id}/shifts`}>{NI ? <NI.Calendar className="w-4 h-4" /> : "🗓️"} <span className="hidden md:inline">Смены</span></a>
                       <a className="btn-ghost flex items-center gap-1" href={`/dashboard/employees/${e.id}/salary`}>{NI ? <NI.Wallet className="w-4 h-4" /> : "💰"} <span className="hidden md:inline">Зарплата</span></a>
                       <button className="btn-ghost" onClick={() => { setEditing(e); setShowForm(true); }}>Изменить</button>
+                      <button className="btn-ghost" onClick={async () => { const emp = await fetch(`/api/employees/${e.id}`).then(r => r.json()); setShowPermissions(emp); }}>Права</button>
                       <button className="btn-ghost border-red-500/50 text-red-500 hover:bg-red-500/10" onClick={async () => { if (!confirm("Удалить сотрудника?")) return; await fetch(`/api/employees/${e.id}`, { method: "DELETE" }); mutate(); }}>Удалить</button>
                     </div>
                   </td>
@@ -99,13 +102,14 @@ export default function EmployeesClient() {
                           {e.phone && <div>📱 {e.phone}</div>}
                           <div>📅 {new Date(e.hireDate).toLocaleDateString("ru-RU")}</div>
                           <div>💰 {Number(e.payRate).toFixed(2)} ₽/день</div>
-                          <div>👤 {e.role}</div>
+                              <div>👤 Роль: {(e as any)?.customRole?.nameRu || e.user?.role || e.userRole || "—"}</div>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2 pt-2 border-t" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
                         <a className="btn-ghost flex items-center gap-1 flex-1" href={`/dashboard/employees/${e.id}/shifts`}>{NI ? <NI.Calendar className="w-4 h-4" /> : "🗓️"} Смены</a>
                         <a className="btn-ghost flex items-center gap-1 flex-1" href={`/dashboard/employees/${e.id}/salary`}>{NI ? <NI.Wallet className="w-4 h-4" /> : "💰"} Зарплата</a>
                         <button className="btn-ghost flex-1" onClick={() => { setEditing(e); setShowForm(true); }}>Изменить</button>
+                        <button className="btn-ghost flex-1" onClick={async () => { const emp = await fetch(`/api/employees/${e.id}`).then(r => r.json()); setShowPermissions(emp); }}>Права</button>
                         <button className="btn-ghost border-red-500/50 text-red-500 hover:bg-red-500/10 flex-1" onClick={async () => { if (!confirm("Удалить сотрудника?")) return; await fetch(`/api/employees/${e.id}`, { method: "DELETE" }); mutate(); }}>Удалить</button>
                       </div>
                     </div>
@@ -124,6 +128,14 @@ export default function EmployeesClient() {
           onSaved={() => { setShowForm(false); mutate(); }}
         />
       )}
+
+      {showPermissions && (
+        <PermissionsModal
+          employee={showPermissions}
+          onClose={() => setShowPermissions(null)}
+          onSaved={() => { setShowPermissions(null); mutate(); }}
+        />
+      )}
     </div>
   );
 }
@@ -136,16 +148,52 @@ function EmployeeForm({ initial, onClose, onSaved }: { initial?: Employee; onClo
   const [hireDate, setHireDate] = useState(initial ? new Date(initial.hireDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
   const [payRate, setPayRate] = useState(String(initial?.payRate ?? ""));
   const [payUnit, setPayUnit] = useState<Employee["payUnit"]>(initial?.payUnit ?? "DAILY");
-  const [role, setRole] = useState<Employee["role"]>(initial?.role ?? "OTHER");
+  const [userRole, setUserRole] = useState<"DIRECTOR" | "">(
+    initial?.user?.role === "DIRECTOR" ? "DIRECTOR" : initial?.userRole === "DIRECTOR" ? "DIRECTOR" : ""
+  );
+  const [customRoleId, setCustomRoleId] = useState<string>(
+    (initial as any)?.customRole?.id || (initial as any)?.customRoleId || ""
+  );
+  const [roles, setRoles] = useState<any[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showSuccess } = useSuccess();
+
+  // Загружаем роли при открытии формы
+  useEffect(() => {
+    const loadRoles = async () => {
+      setLoadingRoles(true);
+      try {
+        const res = await fetch("/api/roles");
+        if (res.ok) {
+          const data = await res.json();
+          setRoles(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error("Error loading roles:", error);
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+    loadRoles();
+  }, []);
 
   const submit = async () => {
     setSaving(true);
     setError(null);
     try {
-      const payload = { name, email, phone, telegramTag, hireDate, payRate: Number(payRate), payUnit, role };
+      const payload = { 
+        name, 
+        email, 
+        phone, 
+        telegramTag, 
+        hireDate, 
+        payRate: Number(payRate), 
+        payUnit, 
+        ...(userRole ? { userRole } : {}),
+        customRoleId: customRoleId || undefined,
+      };
       const res = await fetch(initial ? `/api/employees/${initial.id}` : "/api/employees", {
         method: initial ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -200,12 +248,26 @@ function EmployeeForm({ initial, onClose, onSaved }: { initial?: Employee; onClo
             </select>
           </div>
           <div>
-            <label className="block text-xs mb-1" style={{ color: "rgba(255, 255, 255, 0.7)" }}>Роль</label>
-            <select value={role} onChange={(e) => setRole(e.target.value as any)} className="border rounded px-2 py-1 w-full">
-              <option>CASHIER</option>
-              <option>MANAGER</option>
-              <option>STOCKER</option>
-              <option>OTHER</option>
+            <label className="block text-xs mb-1" style={{ color: "rgba(255, 255, 255, 0.7)" }}>Системная роль</label>
+            <select value={userRole} onChange={(e) => setUserRole(e.target.value as any)} className="border rounded px-2 py-1 w-full">
+              <option value="">Без роли</option>
+              <option>DIRECTOR</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: "rgba(255, 255, 255, 0.7)" }}>Кастомная роль</label>
+            <select 
+              value={customRoleId} 
+              onChange={(e) => setCustomRoleId(e.target.value)} 
+              className="border rounded px-2 py-1 w-full"
+              disabled={loadingRoles}
+            >
+              <option value="">Без роли</option>
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.nameRu} ({role.name})
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -213,6 +275,120 @@ function EmployeeForm({ initial, onClose, onSaved }: { initial?: Employee; onClo
         <div className="mt-4 flex justify-end gap-2">
           <button className="btn-ghost px-3 py-2" onClick={onClose}>Отмена</button>
           <button className="btn-primary" disabled={saving} onClick={submit}>{saving ? "Сохраняем..." : "Сохранить"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PermissionsModal({ employee, onClose, onSaved }: { employee: Employee; onClose: () => void; onSaved: () => void }) {
+  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const { showSuccess } = useSuccess();
+  const NI = useNextIcons();
+
+  // Список всех доступных прав
+  const allPermissions = [
+    { key: "view_salaries", label: "Просмотр зарплат" },
+    { key: "edit_employees", label: "Редактирование сотрудников" },
+    { key: "view_reports", label: "Просмотр отчетов" },
+    { key: "edit_reports", label: "Редактирование отчетов" },
+    { key: "view_shifts", label: "Просмотр смен" },
+    { key: "edit_shifts", label: "Редактирование смен" },
+    { key: "view_debts", label: "Просмотр долгов" },
+    { key: "edit_debts", label: "Редактирование долгов" },
+    { key: "view_shortages", label: "Просмотр недостач" },
+    { key: "edit_shortages", label: "Редактирование недостач" },
+    { key: "view_tasks", label: "Просмотр задач" },
+    { key: "edit_tasks", label: "Редактирование задач" },
+    { key: "view_products", label: "Просмотр товаров" },
+    { key: "edit_products", label: "Редактирование товаров" },
+    { key: "view_payments", label: "Просмотр выплат" },
+    { key: "edit_payments", label: "Редактирование выплат" },
+  ];
+
+  // Загружаем права сотрудника
+  useEffect(() => {
+    const loadPermissions = async () => {
+      try {
+        const res = await fetch(`/api/employees/${employee.id}/permissions`);
+        if (res.ok) {
+          const data = await res.json();
+          const perms: Record<string, boolean> = {};
+          data.forEach((p: { permission: string; granted: boolean }) => {
+            perms[p.permission] = p.granted;
+          });
+          setPermissions(perms);
+        }
+      } catch (error) {
+        console.error("Error loading permissions:", error);
+      }
+    };
+    loadPermissions();
+  }, [employee.id]);
+
+  const handleToggle = (permission: string) => {
+    setPermissions((prev) => ({
+      ...prev,
+      [permission]: !prev[permission],
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Сохраняем все права
+      for (const permission of allPermissions) {
+        const granted = permissions[permission.key] ?? false;
+        await fetch(`/api/employees/${employee.id}/permissions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            permission: permission.key,
+            granted,
+          }),
+        });
+      }
+      showSuccess("Права сохранены!");
+      onSaved();
+    } catch (error) {
+      alert("Ошибка при сохранении прав");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0, 0, 0, 0.8)" }} onClick={onClose}>
+      <div className="modal-panel max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-white">Права доступа: {employee.name}</h2>
+          <button className="text-white text-2xl hover:text-red-500 transition-colors" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="space-y-3">
+          {allPermissions.map((perm) => (
+            <label
+              key={perm.key}
+              className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:bg-white/5"
+              style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
+            >
+              <input
+                type="checkbox"
+                checked={permissions[perm.key] ?? false}
+                onChange={() => handleToggle(perm.key)}
+                className="w-5 h-5 rounded border-gray-600"
+              />
+              <span className="text-white flex-1">{perm.label}</span>
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2 pt-4 border-t" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+          <button className="btn-ghost px-3 py-2" onClick={onClose}>Отмена</button>
+          <button className="btn-primary" disabled={saving} onClick={handleSave}>
+            {saving ? "Сохраняем..." : "Сохранить"}
+          </button>
         </div>
       </div>
     </div>

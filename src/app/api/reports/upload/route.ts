@@ -17,7 +17,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No files provided" }, { status: 400 });
     }
 
-    const uploadDir = join(process.cwd(), "public", "uploads", reportId);
+    const category = formData.get("category") as string | null;
+    
+    // Если есть категория, создаем подпапку для категории
+    const uploadDir = category 
+      ? join(process.cwd(), "public", "uploads", reportId, category)
+      : join(process.cwd(), "public", "uploads", reportId);
     
     // Создаем директорию если её нет
     if (!existsSync(uploadDir)) {
@@ -33,7 +38,8 @@ export async function POST(req: Request) {
       const filePath = join(uploadDir, fileName);
       
       await writeFile(filePath, buffer);
-      savedFiles.push(fileName);
+      // Если есть категория, сохраняем путь с категорией
+      savedFiles.push(category ? `${category}/${fileName}` : fileName);
     }
 
     return NextResponse.json({ files: savedFiles }, { status: 200 });

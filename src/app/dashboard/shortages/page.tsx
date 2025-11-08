@@ -5,7 +5,7 @@ import { useNextIcons } from "@/components/NI";
 import { useSuccess } from "@/components/SuccessProvider";
 import { useRouter } from "next/navigation";
 
-type InventoryCount = { id: string; name: string; date: string; data: any; status: string; createdAt: string; updatedAt: string };
+type InventoryCount = { id: string; name: string; date: string; data: any; status: string; archived: boolean; createdAt: string; updatedAt: string };
 
 const fetcher = (u: string) => fetch(u).then((r) => r.json());
 
@@ -66,6 +66,21 @@ export default function ShortagesPage() {
     }
   };
 
+  const archiveCount = async (countId: string, countName: string, archived: boolean) => {
+    try {
+      const res = await fetch(`/api/inventory-counts/${countId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived }),
+      });
+      if (!res.ok) throw new Error("Ошибка при архивировании");
+      showSuccess(archived ? "Пересчет отправлен в архив!" : "Пересчет восстановлен из архива!");
+      mutateCounts();
+    } catch (error) {
+      alert("Ошибка при архивировании пересчета");
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Кнопка создания нового пересчета */}
@@ -104,7 +119,7 @@ export default function ShortagesPage() {
               <th className="p-3 text-white font-semibold">Статус</th>
               <th className="p-3 text-white font-semibold">Создан</th>
               <th className="p-3 text-white font-semibold">Обновлен</th>
-              <th className="p-3 text-white font-semibold"></th>
+              <th className="p-3 text-white font-semibold">Действия</th>
             </tr>
           </thead>
           <tbody>
@@ -122,13 +137,20 @@ export default function ShortagesPage() {
                   </td>
                   <td className="p-3 text-gray-300">{new Date(count.date).toLocaleDateString("ru-RU")}</td>
                   <td className="p-3">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      count.status === "SAVED" 
-                        ? "bg-green-500/20 text-green-400" 
-                        : "bg-yellow-500/20 text-yellow-400"
-                    }`}>
-                      {count.status === "SAVED" ? "Соранен" : "Черновик"}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        count.status === "SAVED" 
+                          ? "bg-green-500/20 text-green-400" 
+                          : "bg-yellow-500/20 text-yellow-400"
+                      }`}>
+                        {count.status === "SAVED" ? "Соранен" : "Черновик"}
+                      </span>
+                      {count.archived && (
+                        <span className="px-2 py-1 rounded text-xs bg-gray-500/20 text-gray-400">
+                          Архив
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-3 text-gray-300 text-xs">
                     {new Date(count.createdAt).toLocaleDateString("ru-RU")}
@@ -137,12 +159,22 @@ export default function ShortagesPage() {
                     {new Date(count.updatedAt).toLocaleDateString("ru-RU")}
                   </td>
                   <td className="p-3 text-right">
-                    <button 
-                      onClick={() => deleteCount(count.id, count.name)}
-                      className="text-red-500 hover:text-red-400"
-                    >
-                      {NI ? <NI.Trash className="w-4 h-4" /> : "🗑️"}
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button 
+                        onClick={() => archiveCount(count.id, count.name, !count.archived)}
+                        className={`${count.archived ? "text-yellow-500 hover:text-yellow-400" : "text-gray-500 hover:text-gray-400"}`}
+                        title={count.archived ? "Восстановить из архива" : "Отправить в архив"}
+                      >
+                        {NI ? <NI.Box className="w-4 h-4" /> : "📦"}
+                      </button>
+                      <button 
+                        onClick={() => deleteCount(count.id, count.name)}
+                        className="text-red-500 hover:text-red-400"
+                        title="Удалить"
+                      >
+                        {NI ? <NI.Trash className="w-4 h-4" /> : "🗑️"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 
@@ -162,20 +194,37 @@ export default function ShortagesPage() {
                           <div>Создан: {new Date(count.createdAt).toLocaleDateString("ru-RU")}</div>
                           <div>Обновлен: {new Date(count.updatedAt).toLocaleDateString("ru-RU")}</div>
                         </div>
-                        <span className={`inline-block px-2 py-1 rounded text-xs mt-2 ${
-                          count.status === "SAVED" 
-                            ? "bg-green-500/20 text-green-400" 
-                            : "bg-yellow-500/20 text-yellow-400"
-                        }`}>
-                          {count.status === "SAVED" ? "Соранен" : "Черновик"}
-                        </span>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            count.status === "SAVED" 
+                              ? "bg-green-500/20 text-green-400" 
+                              : "bg-yellow-500/20 text-yellow-400"
+                          }`}>
+                            {count.status === "SAVED" ? "Соранен" : "Черновик"}
+                          </span>
+                          {count.archived && (
+                            <span className="px-2 py-1 rounded text-xs bg-gray-500/20 text-gray-400">
+                              Архив
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <button 
-                        onClick={() => deleteCount(count.id, count.name)}
-                        className="text-red-500 hover:text-red-400 flex-shrink-0"
-                      >
-                        {NI ? <NI.Trash className="w-5 h-5" /> : "🗑️"}
-                      </button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button 
+                          onClick={() => archiveCount(count.id, count.name, !count.archived)}
+                          className={`${count.archived ? "text-yellow-500 hover:text-yellow-400" : "text-gray-500 hover:text-gray-400"}`}
+                          title={count.archived ? "Восстановить из архива" : "Отправить в архив"}
+                        >
+                          {NI ? <NI.Box className="w-5 h-5" /> : "📦"}
+                        </button>
+                        <button 
+                          onClick={() => deleteCount(count.id, count.name)}
+                          className="text-red-500 hover:text-red-400"
+                          title="Удалить"
+                        >
+                          {NI ? <NI.Trash className="w-5 h-5" /> : "🗑️"}
+                        </button>
+                      </div>
                     </div>
                   </td>
                 </tr>

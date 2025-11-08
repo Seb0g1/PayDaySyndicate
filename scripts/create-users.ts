@@ -11,8 +11,8 @@ config({ path: envPath });
 const prisma = new PrismaClient();
 
 const users = [
+  { name: "Данил", password: "CGJ-Ge-90", role: "DIRECTOR" as const },
   { name: "Адам", password: "CGJ-Ge-90", role: "DIRECTOR" as const },
-  { name: "Данил", password: "CGJ-Ge-90", role: "SENIOR_ADMIN" as const },
   { name: "Максим", password: "123456789", role: "SENIOR_ADMIN" as const },
   { name: "Сэни", password: "123456789", role: "ADMIN" as const },
   { name: "Глеб", password: "123456789", role: "ADMIN" as const },
@@ -24,60 +24,47 @@ async function main() {
   console.log("Создание пользователей...");
 
   for (const userData of users) {
-    const existing = await prisma.user.findFirst({ where: { name: userData.name } });
-    const passwordHash = await hash(userData.password, 10);
-
-    if (existing) {
-      // Обновляем существующего пользователя
-      let employeeId = existing.employeeId;
+    try {
+      const passwordHash = await hash(userData.password, 10);
       
-      // Создаем сотрудника, если его нет
-      if (!employeeId) {
-        const emp = await prisma.employee.create({
-          data: {
-            name: userData.name,
-            hireDate: new Date(),
-            payRate: 0,
-            payUnit: "DAILY",
-            role: "OTHER",
-          },
-        });
-        employeeId = emp.id;
+      // Используем прямой SQL запрос для обхода проблем с отсутствующими колонками
+      const existing = await prisma.$queryRaw`
+        SELECT id, name, email, role FROM "User" WHERE name = ${userData.name} LIMIT 1;
+      ` as any[];
+
+      if (existing && existing.length > 0) {
+        // Обновляем существующего пользователя
+        await prisma.$executeRaw`
+          UPDATE "User"
+          SET 
+            password = ${passwordHash},
+            role = ${userData.role}::"UserRole",
+            "updatedAt" = NOW()
+          WHERE name = ${userData.name};
+        `;
+
+        console.log(`✓ Обновлен: ${userData.name} (${userData.role})`);
+      } else {
+        // Создаем нового пользователя
+        const email = `${userData.name.toLowerCase().replace(/\s+/g, '')}@admin.local`;
+        
+        await prisma.$executeRaw`
+          INSERT INTO "User" (id, name, email, password, role, "createdAt", "updatedAt")
+          VALUES (
+            gen_random_uuid()::TEXT,
+            ${userData.name},
+            ${email},
+            ${passwordHash},
+            ${userData.role}::"UserRole",
+            NOW(),
+            NOW()
+          );
+        `;
+
+        console.log(`✓ Создан: ${userData.name} (${userData.role})`);
       }
-
-      await prisma.user.update({
-        where: { id: existing.id },
-        data: {
-          name: userData.name,
-          password: passwordHash,
-          role: userData.role,
-          employeeId,
-        },
-      });
-
-      console.log(`✓ Обновлен: ${userData.name} (${userData.role})`);
-    } else {
-      // Создаем нового пользователя
-      const emp = await prisma.employee.create({
-        data: {
-          name: userData.name,
-          hireDate: new Date(),
-          payRate: 0,
-          payUnit: "DAILY",
-          role: "OTHER",
-        },
-      });
-
-      await prisma.user.create({
-        data: {
-          name: userData.name,
-          password: passwordHash,
-          role: userData.role,
-          employeeId: emp.id,
-        },
-      });
-
-      console.log(`✓ Создан: ${userData.name} (${userData.role})`);
+    } catch (error: any) {
+      console.error(`❌ Ошибка при создании пользователя ${userData.name}:`, error.message);
     }
   }
 

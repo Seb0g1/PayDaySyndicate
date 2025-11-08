@@ -45,7 +45,7 @@ export default function PCManagementPage() {
   const { showSuccess } = useSuccess();
   const { showError } = useError();
 
-  const isDirector = role === "DIRECTOR" || role === "SENIOR_ADMIN";
+  const isDirector = role === "DIRECTOR" || role === "OWNER";
   
   const { data: pcs, mutate, error: pcsError } = useSWR<PCMapping[]>(isDirector ? "/api/pc/list" : null, fetcher);
   const [selectedPCs, setSelectedPCs] = useState<Set<string>>(new Set());
@@ -241,7 +241,7 @@ export default function PCManagementPage() {
   if (!isDirector) {
     return (
       <div className="card p-6 text-center">
-        <p className="text-gray-400">Доступ запрещен. Только директор и управляющий могут управлять ПК.</p>
+        <p className="text-gray-400">Доступ запрещен. Только директор может управлять ПК.</p>
       </div>
     );
   }

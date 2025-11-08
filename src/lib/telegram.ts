@@ -521,20 +521,20 @@ ${tagLine}
     return await sendTelegramMediaGroup({
       photoUrls: options.photoUrls,
       caption: message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+    botToken: options.botToken,
+    chatId: options.chatId,
+    topicId: options.topicId,
+  });
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
       message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+          botToken: options.botToken,
+          chatId: options.chatId,
+          topicId: options.topicId,
+        });
     return messageId !== null;
-  }
+    }
 }
 
 /**
@@ -574,20 +574,20 @@ ${nalFactLine}${discrepancyLine}
     return await sendTelegramMediaGroup({
       photoUrls: options.photoUrls,
       caption: message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+    botToken: options.botToken,
+    chatId: options.chatId,
+    topicId: options.topicId,
+  });
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
       message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+          botToken: options.botToken,
+          chatId: options.chatId,
+          topicId: options.topicId,
+        });
     return messageId !== null;
-  }
+    }
 }
 
 /**
@@ -617,20 +617,20 @@ ${shiftLine}
     return await sendTelegramMediaGroup({
       photoUrls: options.photoUrls,
       caption: message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+    botToken: options.botToken,
+    chatId: options.chatId,
+    topicId: options.topicId,
+  });
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
       message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+          botToken: options.botToken,
+          chatId: options.chatId,
+          topicId: options.topicId,
+        });
     return messageId !== null;
-  }
+    }
 }
 
 /**
@@ -644,30 +644,69 @@ export async function notifyTableStatusReport(options: {
   shiftDate?: Date;
   topicId?: string;
   photoUrls?: string[];
+  photoCategories?: Record<string, string[]>;
 }): Promise<boolean> {
   const adminLine = options.telegramTag ? `Администратор ${options.telegramTag}` : `Администратор: <b>${options.adminName}</b>`;
   const shiftLine = options.shiftDate ? `Смена: <b>${new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }).format(options.shiftDate)}</b>` : '';
   
-  const message = `
+  const categoryLabels: Record<string, string> = {
+    comfort_side_1: "Столы на Comfort Сторона №1",
+    comfort_side_2: "Столы на Comfort Сторона №2",
+    standard_side_1: "Столы на standard Сторона №1",
+    standard_side_2: "Столы на standard Сторона №2",
+    vip_side_1: "Столы на VIP Сторона №1",
+    vip_side_2: "Столы на VIP Сторона №2",
+    bootcamp_side_1: "Столы на BOOTCAMP Сторона №1",
+    bootcamp_side_2: "Столы на BOOTCAMP Сторона №2",
+    ps5_zone: "PS 5 Зона Фото",
+  };
+  
+  const baseMessage = `
 ${adminLine} добавил отчёт о СТОЛАХ себе в смену.
 
 ${shiftLine}
   `.trim();
 
-  // Если есть фотографии, отправляем все в одном сообщении (media group)
-  if (options.photoUrls && options.photoUrls.length > 0) {
-    // Отправляем все фотографии в одном сообщении с текстом
+  // Если есть фотографии по категориям, отправляем их группами
+  if (options.photoCategories && Object.keys(options.photoCategories).length > 0) {
+    let allSent = true;
+    
+    for (const [category, files] of Object.entries(options.photoCategories)) {
+      if (Array.isArray(files) && files.length > 0) {
+        const categoryLabel = categoryLabels[category] || category;
+        // files уже содержат полные пути /uploads/reportId/category/fileName
+        const photoUrls = files;
+        
+        const categoryMessage = `${baseMessage}\n\n<b>${categoryLabel}</b>`;
+        
+        const sent = await sendTelegramMediaGroup({
+          photoUrls,
+          caption: categoryMessage,
+    botToken: options.botToken,
+    chatId: options.chatId,
+    topicId: options.topicId,
+  });
+
+        if (!sent) {
+          allSent = false;
+        }
+      }
+    }
+    
+    return allSent;
+  } else if (options.photoUrls && options.photoUrls.length > 0) {
+    // Если есть фотографии без категорий, отправляем все в одном сообщении
     return await sendTelegramMediaGroup({
       photoUrls: options.photoUrls,
-      caption: message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+      caption: baseMessage,
+          botToken: options.botToken,
+          chatId: options.chatId,
+          topicId: options.topicId,
+        });
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
-      message,
+      message: baseMessage,
       botToken: options.botToken,
       chatId: options.chatId,
       topicId: options.topicId,
@@ -713,20 +752,20 @@ ${promoLine}
     return await sendTelegramMediaGroup({
       photoUrls: options.photoUrls,
       caption: message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+    botToken: options.botToken,
+    chatId: options.chatId,
+    topicId: options.topicId,
+  });
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
       message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+          botToken: options.botToken,
+          chatId: options.chatId,
+          topicId: options.topicId,
+        });
     return messageId !== null;
-  }
+    }
 }
 
 /**
@@ -759,20 +798,20 @@ ${timeLine}
     return await sendTelegramMediaGroup({
       photoUrls: options.photoUrls,
       caption: message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+    botToken: options.botToken,
+    chatId: options.chatId,
+    topicId: options.topicId,
+  });
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
       message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+          botToken: options.botToken,
+          chatId: options.chatId,
+          topicId: options.topicId,
+        });
     return messageId !== null;
-  }
+    }
 }
 
 /**
@@ -808,20 +847,20 @@ ${descLine}
     return await sendTelegramMediaGroup({
       photoUrls: options.photoUrls,
       caption: message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+    botToken: options.botToken,
+    chatId: options.chatId,
+    topicId: options.topicId,
+  });
   } else {
     // Если фотографий нет, отправляем только текстовое сообщение
     const messageId = await sendTelegramMessage({
       message,
-      botToken: options.botToken,
-      chatId: options.chatId,
-      topicId: options.topicId,
-    });
+          botToken: options.botToken,
+          chatId: options.chatId,
+          topicId: options.topicId,
+        });
     return messageId !== null;
-  }
+    }
 }
 
 /**

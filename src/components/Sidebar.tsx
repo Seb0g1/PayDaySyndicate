@@ -6,6 +6,8 @@ import { useSession, signOut } from "next-auth/react";
 import { useNextIcons } from "@/components/NI";
 import { useEffect, useState } from "react";
 import { useSidebar } from "@/components/SidebarProvider";
+import { useSiteSettings } from "@/components/SiteSettingsProvider";
+import NotificationBell from "@/components/NotificationBell";
 
 type Role = "DIRECTOR" | "SENIOR_ADMIN" | "ADMIN" | "EMPLOYEE" | undefined;
 
@@ -42,6 +44,8 @@ const allLinks: MenuItem[] = [
   { href: "/dashboard/langame-settings", label: "Настройки Langame", key: "langameSettings", icon: "🔗", shortcut: null },
   { href: "/dashboard/telegram", label: "Telegram", key: "telegram", icon: "📱", shortcut: "8" },
   { href: "/dashboard/payments", label: "Выплаты", key: "payments", icon: "💸", shortcut: null },
+  { href: "/dashboard/notifications", label: "Уведомления", key: "notifications", icon: "🔔", shortcut: null },
+  { href: "/dashboard/site-settings", label: "Настройки сайта", key: "siteSettings", icon: "⚙️", shortcut: null },
   { href: "/dashboard/profile", label: "Профиль", key: "profile", icon: "👤", shortcut: null },
 ] as const;
 
@@ -95,6 +99,7 @@ const menuGroups: MenuGroup[] = [
       { href: "/dashboard/pc-management", label: "Управление ПК", key: "pcManagement", icon: "monitor", shortcut: null },
       { href: "/dashboard/langame-settings", label: "Настройки Langame", key: "langameSettings", icon: "link", shortcut: null },
       { href: "/dashboard/telegram", label: "Telegram", key: "telegram", icon: "link", shortcut: "8" },
+      { href: "/dashboard/site-settings", label: "Настройки сайта", key: "siteSettings", icon: "monitor", shortcut: null },
     ],
   },
 ];
@@ -104,12 +109,12 @@ function visibleKeysByRole(role: Role): readonly string[] {
     case "DIRECTOR":
       return allLinks.map((l) => l.key);
     case "SENIOR_ADMIN":
-      return ["home", "shifts", "salaries", "debts", "reports", "tasks", "memos", "lostItems", "pcManagement", "productOrder", "payments", "profile"];
+      return ["home", "shifts", "salaries", "debts", "reports", "tasks", "memos", "lostItems", "productOrder", "payments", "notifications", "profile"];
     case "ADMIN":
-      return ["home", "tasks", "memos", "lostItems", "reports", "profile"];
+      return ["home", "debts", "tasks", "memos", "lostItems", "reports", "notifications", "profile"];
     case "EMPLOYEE":
     default:
-      return ["home", "tasks", "memos", "lostItems", "reports", "profile"];
+      return ["home", "debts", "tasks", "memos", "lostItems", "reports", "notifications", "profile"];
   }
 }
 
@@ -158,21 +163,88 @@ export default function Sidebar() {
   const router = useRouter();
   const { data } = useSession();
   const role = ((data as any)?.user as any)?.role as Role;
-  const allowed = new Set(visibleKeysByRole(role));
+  
+  // Получаем информацию о пользователе, включая кастомную роль
+  const [me, setMe] = useState<any>(null);
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((data) => setMe(data))
+      .catch(() => setMe(null));
+  }, []);
+  
+  const customRoleName = me?.customRole?.name as string | undefined;
+  
+  // Определяем видимые ключи на основе системной роли и кастомной роли
+  let allowedKeys: readonly string[] = visibleKeysByRole(role);
+  
+  // Если есть кастомная роль, используем её для определения прав
+  if (customRoleName === "Admin") {
+    allowedKeys = ["home", "debts", "tasks", "memos", "lostItems", "reports", "notifications", "profile"];
+  } else if (customRoleName === "Seniour_Admin") {
+    allowedKeys = ["home", "shifts", "salaries", "debts", "reports", "tasks", "memos", "lostItems", "productOrder", "payments", "notifications", "profile"];
+  }
+  
+  const allowed = new Set(allowedKeys);
   const links = allLinks.filter((l) => allowed.has(l.key));
   const NI = useNextIcons();
   const { isCollapsed, setIsCollapsed } = useSidebar();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const { settings } = useSiteSettings();
+  const siteName = settings?.siteName || "PayDay Syndicate";
+  const siteIcon = settings?.siteIcon || "PS";
 
   // Определяем, нужно ли группировать меню
-  const shouldGroup = role === "DIRECTOR" || role === "SENIOR_ADMIN";
+  const isDirector = role === "DIRECTOR" || (role as any) === "OWNER";
+  const isSeniorAdmin = customRoleName === "Seniour_Admin";
+  const shouldGroup = isDirector || isSeniorAdmin;
   
-  // Фильтруем группы меню для текущей роли
+  // Функция для проверки видимости пункта меню на основе настроек сайта
+  const isItemVisible = (key: string): boolean => {
+    if (!settings) return true; // Если настройки не загружены, показываем все
+    
+    // siteSettings всегда виден для DIRECTOR
+    if (key === "siteSettings" && role === "DIRECTOR") return true;
+    
+    // Проверяем настройки для каждого пункта
+    const settingsMap: Record<string, keyof typeof settings> = {
+      employees: "enableEmployees",
+      shifts: "enableShifts",
+      products: "enableProducts",
+      productOrder: "enableProductOrder",
+      debts: "enableDebts",
+      shortages: "enableShortages",
+      salaries: "enableSalaries",
+      reports: "enableReports",
+      tasks: "enableTasks",
+      checklist: "enableChecklist",
+      lostItems: "enableLostItems",
+      memos: "enableMemos",
+      payments: "enablePayments",
+      pcManagement: "enablePcManagement",
+      langameSettings: "enableLangame",
+      telegram: "enableTelegram",
+    };
+    
+    const settingKey = settingsMap[key];
+    if (settingKey) {
+      const value = settings[settingKey];
+      return typeof value === "boolean" ? value : true;
+    }
+    
+    // Для остальных пунктов (home, notifications, profile) всегда показываем
+    return true;
+  };
+  
+  // Фильтруем группы меню для текущей роли и настроек сайта
   const filteredGroups = shouldGroup
-    ? menuGroups.filter((group) =>
-        group.items.some((item) => allowed.has(item.key))
-      )
+    ? menuGroups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => allowed.has(item.key) && isItemVisible(item.key)),
+        }))
+        .filter((group) => group.items.length > 0)
     : [];
 
   // Проверяем, есть ли активный пункт в группе
@@ -294,15 +366,15 @@ export default function Sidebar() {
           {!isCollapsed && (
             <>
               <div className="flex items-center justify-center w-9 h-9 border border-red-500 rounded-lg bg-gradient-to-br from-red-500/20 to-red-900/20">
-                <div className="text-red-500 font-bold text-sm">PS</div>
+                <div className="text-red-500 font-bold text-sm">{siteIcon}</div>
               </div>
-              <div className="font-semibold text-white text-base">PAYDAY SYNDICATE</div>
+              <div className="font-semibold text-white text-base">{siteName.toUpperCase()}</div>
             </>
           )}
           {isCollapsed && (
             <div className="flex items-center justify-center w-full">
               <div className="flex items-center justify-center w-9 h-9 border border-red-500 rounded-lg bg-gradient-to-br from-red-500/20 to-red-900/20">
-                <div className="text-red-500 font-bold text-sm">PS</div>
+                <div className="text-red-500 font-bold text-sm">{siteIcon}</div>
               </div>
             </div>
           )}
@@ -383,6 +455,11 @@ export default function Sidebar() {
           )}
         </nav>
         <div className="mt-auto p-3 border-t flex flex-col gap-2" style={{ borderColor: "rgba(255, 0, 0, 0.2)" }}>
+          {!isCollapsed && (
+            <div className="mb-2">
+              <NotificationBell />
+            </div>
+          )}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="btn-ghost font-medium text-xs py-1 hidden md:block"

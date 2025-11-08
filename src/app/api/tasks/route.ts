@@ -4,6 +4,7 @@ import { requireDirector } from "@/lib/guards";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { notifyTask } from "@/lib/telegram";
+import { createNotificationForEmployee } from "@/lib/notifications";
 
 const taskSchema = z.object({
   title: z.string().min(1),
@@ -108,6 +109,14 @@ export async function POST(req: Request) {
         topicId: settings.topicTasks || undefined,
       });
     }
+
+    // Создаем уведомление для сотрудника
+    await createNotificationForEmployee(assignedToId, {
+      type: "task",
+      title: "Новая задача назначена",
+      message: `${userName} назначил вам задачу: ${title}${description ? `\n${description}` : ""}`,
+      link: `/dashboard/tasks`,
+    });
   } catch (error) {
     console.error("Failed to send Telegram notification:", error);
   }

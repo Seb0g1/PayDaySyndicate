@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuth } from "@/lib/auth";
 import { notifyShiftCreated } from "@/lib/telegram";
+import { createNotificationForEmployee, createNotificationForDirectors } from "@/lib/notifications";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -45,17 +46,17 @@ export async function POST(req: Request) {
     include: { employee: { select: { id: true, name: true, telegramTag: true } } },
   });
   
+  const shiftTypeMap: Record<string, string> = {
+    MORNING: "День",
+    EVENING: "Вечер",
+    NIGHT: "Ночь",
+    CUSTOM: "Другая",
+  };
+
   // Отправляем уведомление в Telegram
   try {
     const settings = await prisma.telegramSettings.findFirst();
     if (settings?.enabled && settings?.botToken) {
-      const shiftTypeMap: Record<string, string> = {
-        MORNING: "День",
-        EVENING: "Вечер",
-        NIGHT: "Ночь",
-        CUSTOM: "Другая",
-      };
-      
       await notifyShiftCreated({
         botToken: settings.botToken,
         chatId: settings.chatId || undefined,
@@ -68,6 +69,24 @@ export async function POST(req: Request) {
         employeeTag: created.employee?.telegramTag || undefined,
       });
     }
+
+    // Создаем уведомление для сотрудника
+    if (created.employeeId) {
+      await createNotificationForEmployee(created.employeeId, {
+        type: "shift",
+        title: "Новая смена назначена",
+        message: `Вам назначена смена ${shiftTypeMap[type] || type} на ${new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(date))}`,
+        link: `/dashboard/shifts`,
+      });
+    }
+
+    // Создаем уведомление для директоров
+    await createNotificationForDirectors({
+      type: "shift",
+      title: "Новая смена создана",
+      message: `${userName} назначил смену ${shiftTypeMap[type] || type} сотруднику ${created.employee?.name || "Сотрудник"} на ${new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(date))}`,
+      link: `/dashboard/shifts`,
+    });
   } catch (error) {
     console.error("Failed to send Telegram notification:", error);
     // Не прерываем создание смены из-за ошибки уведомления

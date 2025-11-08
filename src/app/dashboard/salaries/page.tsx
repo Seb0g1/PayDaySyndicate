@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNextIcons } from "@/components/NI";
 import { useSession } from "next-auth/react";
 import { useSuccess } from "@/components/SuccessProvider";
+import { useSiteSettings } from "@/components/SiteSettingsProvider";
 
 type Row = {
   employee: { id: string; name: string };
@@ -51,7 +52,9 @@ const fetcher = async (u: string) => {
 export default function SalariesPage() {
   const NI = useNextIcons();
   const { data: session } = useSession();
+  const { settings } = useSiteSettings();
   const role = ((session as any)?.user as any)?.role as string | undefined;
+  const isDirector = role === "DIRECTOR" || role === "OWNER";
   const download = async (r: Row) => {
     const pdfLib = await import("@react-pdf/renderer");
     const { Document, Page, Text, View, StyleSheet, Image, pdf, Font } = pdfLib;
@@ -64,23 +67,54 @@ export default function SalariesPage() {
         ],
       });
     } catch {}
+    
+    // Получаем настройки расчетного листа
+    const borderColor = settings?.payslipBorderColor || "#000000";
+    const showStamp = settings?.payslipShowStamp ?? true;
+    const watermark = settings?.payslipWatermark || "";
+    const stampImage = settings?.payslipStampImage || "/pechat.png";
+    
     const styles = StyleSheet.create({
-      page: { padding: 28, fontFamily: "NotoSans", position: "relative" },
-      header: { fontSize: 18, marginBottom: 12, fontWeight: 700 },
-      row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6, fontSize: 12 },
-      label: { width: 160 },
-      value: { flex: 1, textAlign: "right" },
-      hr: { height: 1, backgroundColor: "#e5e7eb", marginVertical: 8 },
+      page: { 
+        padding: 28, 
+        fontFamily: "NotoSans", 
+        position: "relative",
+        border: `2px solid ${borderColor}`,
+        borderStyle: "solid",
+      },
+      header: { fontSize: 20, marginBottom: 16, fontWeight: 700, color: "#1a1a1a" },
+      row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8, fontSize: 13 },
+      label: { width: 160, color: "#4a4a4a", fontWeight: 500 },
+      value: { flex: 1, textAlign: "right", color: "#1a1a1a", fontWeight: 600 },
+      hr: { height: 1, backgroundColor: "#e5e7eb", marginVertical: 10 },
       stamp: { width: 120, position: "absolute", right: 24, bottom: 24, opacity: 0.85 },
-      sectionTitle: { fontSize: 14, marginTop: 10, marginBottom: 6, fontWeight: 700 },
-      listItem: { fontSize: 11, marginBottom: 3 },
+      sectionTitle: { fontSize: 15, marginTop: 12, marginBottom: 8, fontWeight: 700, color: "#1a1a1a" },
+      listItem: { fontSize: 11, marginBottom: 4, color: "#4a4a4a" },
+      watermark: {
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%) rotate(-45deg)",
+        fontSize: 48,
+        color: "rgba(0, 0, 0, 0.05)",
+        fontWeight: "bold",
+        zIndex: 0,
+      },
+      content: {
+        position: "relative",
+        zIndex: 1,
+      },
     });
     const fmtDate = (s: string) => new Date(s).toLocaleDateString("ru-RU");
     const fmt = (n: number) => n.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const doc = (
       <Document>
         <Page size="A4" style={styles.page}>
-          <Text style={styles.header}>Расчётный лист</Text>
+          {watermark && (
+            <Text style={styles.watermark}>{watermark}</Text>
+          )}
+          <View style={styles.content}>
+            <Text style={styles.header}>Расчётный лист</Text>
           <View style={styles.row}><Text style={styles.label}>Сотрудник</Text><Text style={styles.value}>{r.employee.name}</Text></View>
           <View style={styles.row}><Text style={styles.label}>Период</Text><Text style={styles.value}>{fmtDate(start)} — {fmtDate(end)}</Text></View>
           <View style={styles.hr} />
@@ -140,7 +174,8 @@ export default function SalariesPage() {
               ) : null}
             </>
           ) : null}
-          <Image src="/pechat.png" style={styles.stamp} />
+          </View>
+          {showStamp && <Image src={stampImage} style={styles.stamp} />}
         </Page>
       </Document>
     );
@@ -285,11 +320,11 @@ export default function SalariesPage() {
       ) : null}
       <div className="card overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="hidden lg:table-header-group"><tr className="bg-gray-50 text-left"><th className="p-2">Сотрудник</th><th className="p-2">Часы</th><th className="p-2">Смены</th><th className="p-2">Начислено</th><th className="p-2">Долги</th><th className="p-2">Недостачи</th><th className="p-2">Штрафы</th><th className="p-2">Бонусы</th><th className="p-2">Кальяны</th><th className="p-2">Итого</th><th className="p-2">Расчётный лист</th><th className="p-2">Выплатить</th></tr></thead>
+          <thead className="hidden lg:table-header-group"><tr className="bg-gray-50 text-left"><th className="p-2">Сотрудник</th><th className="p-2">Часы</th><th className="p-2">Смены</th><th className="p-2">Начислено</th><th className="p-2">Долги</th><th className="p-2">Недостачи</th><th className="p-2">Штрафы</th><th className="p-2">Бонусы</th><th className="p-2">Кальяны</th><th className="p-2">Итого</th><th className="p-2">Расчётный лист</th>{isDirector && <th className="p-2">Выплатить</th>}</tr></thead>
           <tbody>
-            {isLoading && <tr><td className="p-3" colSpan={12}>Загрузка...</td></tr>}
-            {!isLoading && error && <tr><td className="p-3 text-red-500" colSpan={12}>Ошибка загрузки данных: {error.message || "Неизвестная ошибка"}</td></tr>}
-            {!isLoading && !error && (!data || data.length === 0) && <tr><td className="p-3 text-gray-400" colSpan={12}>Нет данных для отображения. Проверьте период и наличие сотрудников в системе.</td></tr>}
+            {isLoading && <tr><td className="p-3" colSpan={isDirector ? 12 : 11}>Загрузка...</td></tr>}
+            {!isLoading && error && <tr><td className="p-3 text-red-500" colSpan={isDirector ? 12 : 11}>Ошибка загрузки данных: {error.message || "Неизвестная ошибка"}</td></tr>}
+            {!isLoading && !error && (!data || data.length === 0) && <tr><td className="p-3 text-gray-400" colSpan={isDirector ? 12 : 11}>Нет данных для отображения. Проверьте период и наличие сотрудников в системе.</td></tr>}
             {!isLoading && !error && (data ?? []).map((r) => (
               <>
               <tr key={r.employee.id} className="border-t hidden lg:table-row">
@@ -304,11 +339,11 @@ export default function SalariesPage() {
                 <td className="p-2">{Number(r.hookah || 0).toFixed(2)}</td>
                 <td className="p-2 font-medium">{Number(r.net).toFixed(2)}</td>
                 <td className="p-2"><button className="btn-ghost flex items-center gap-1" onClick={() => download(r)}>{NI ? <NI.Download className="w-4 h-4" /> : "⬇️"} Скачать</button></td>
-                <td className="p-2"><PaymentButton employeeId={r.employee.id} employeeName={r.employee.name} amount={Number(r.net)} periodStart={start} periodEnd={end} /></td>
+                {isDirector && <td className="p-2"><PaymentButton employeeId={r.employee.id} employeeName={r.employee.name} amount={Number(r.net)} periodStart={start} periodEnd={end} /></td>}
               </tr>
               {/* Mobile view */}
               <tr key={`${r.employee.id}-mobile`} className="border-t lg:hidden">
-                <td className="p-3" colSpan={12}>
+                <td className="p-3" colSpan={isDirector ? 12 : 11}>
                   <div className="space-y-3">
                     <div className="font-medium text-white text-base">{r.employee.name}</div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
@@ -331,9 +366,9 @@ export default function SalariesPage() {
                       <div className="text-gray-400 font-medium">Итого:</div>
                       <div className="text-white font-medium">{Number(r.net).toFixed(2)} ₽</div>
                     </div>
-                    <div className="flex gap-2 pt-2 border-t" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+                    <div className={`flex gap-2 pt-2 border-t ${isDirector ? 'justify-between' : 'justify-center'}`} style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
                       <button className="btn-ghost flex items-center gap-1 flex-1 justify-center" onClick={() => download(r)}>{NI ? <NI.Download className="w-4 h-4" /> : "⬇️"} Скачать</button>
-                      <div className="flex-1"><PaymentButton employeeId={r.employee.id} employeeName={r.employee.name} amount={Number(r.net)} periodStart={start} periodEnd={end} /></div>
+                      {isDirector && <div className="flex-1"><PaymentButton employeeId={r.employee.id} employeeName={r.employee.name} amount={Number(r.net)} periodStart={start} periodEnd={end} /></div>}
                     </div>
                   </div>
                 </td>
@@ -349,6 +384,10 @@ export default function SalariesPage() {
 }
 
 function PaymentButton({ employeeId, employeeName, amount, periodStart, periodEnd }: { employeeId: string; employeeName: string; amount: number; periodStart: string; periodEnd: string }) {
+  const { data: session } = useSession();
+  const role = ((session as any)?.user as any)?.role as string | undefined;
+  const isDirector = role === "DIRECTOR" || role === "OWNER";
+  
   const [showModal, setShowModal] = useState(false);
   const [status, setStatus] = useState<"PENDING" | "PAID" | "CANCELLED">("PENDING");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -358,6 +397,11 @@ function PaymentButton({ employeeId, employeeName, amount, periodStart, periodEn
   const { showSuccess } = useSuccess();
   
   const { data: employee } = useSWR(`/api/employees/${employeeId}`, fetcher);
+  
+  // Показываем кнопку только для директора
+  if (!isDirector) {
+    return null;
+  }
   
   const handleSave = async () => {
     setSaving(true);

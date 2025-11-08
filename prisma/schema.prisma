@@ -15,6 +15,7 @@ model User {
   emailVerified DateTime?
   image         String?
   role          UserRole  @default(EMPLOYEE)
+  customRoleId  String?   // ID кастомной роли
   password      String?
   employeeId    String?   @unique
   createdAt     DateTime  @default(now())
@@ -22,10 +23,14 @@ model User {
   accounts      Account[]
   sessions      Session[]
   employee      Employee? @relation(fields: [employeeId], references: [id])
+  customRole    Role?     @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
   createdTasks  Task[]    @relation("TaskCreatedBy")
   createdMemos  Memo[]    @relation("MemoCreatedBy")
   createdLostItems LostItem[] @relation("LostItemCreatedBy")
   retrievedLostItems LostItem[] @relation("LostItemRetrievedBy")
+  notifications Notification[]
+
+  @@index([customRoleId])
 }
 
 model Account {
@@ -72,6 +77,8 @@ model Employee {
   payRate       Decimal         @db.Decimal(10, 2)
   payUnit       PayRateUnit     @default(DAILY)
   role          EmployeeRole    @default(OTHER)
+  userRole      UserRole?       // Роль пользователя (для доступа к системе)
+  customRoleId  String?         // ID кастомной роли
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   debts         Debt[]
@@ -80,6 +87,7 @@ model Employee {
   shortages     Shortage[]      @relation("ShortageAssignedTo")
   reports       Report[]
   user          User?
+  customRole    Role?           @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
   tasks         Task[]          @relation("TaskAssignedTo")
   // Платежные данные
   paymentMethod PaymentMethod?
@@ -87,6 +95,10 @@ model Employee {
   cardNumber    String?         // Номер банковской карты
   bankName      String?         // Название банка
   payments      SalaryPayment[]
+  notifications Notification[]
+  permissions   EmployeePermission[] // Права доступа
+
+  @@index([customRoleId])
 }
 
 model Shift {
@@ -175,14 +187,18 @@ model Shortage {
   suggestedReplacement Json?
   resolved             Boolean   @default(false)
   assignedToEmployeeId String?
+  excludedFromSalary   Boolean   @default(false) // Исключить из расчета зарплаты
+  inventoryCountId     String?   // ID пересчета, из которого создана недостача
   langameId            Int?      // ID товара из Langame API
   category             String?  // Категория товара
   subcategory          String?  // Подкатегория товара
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   assignedTo           Employee? @relation("ShortageAssignedTo", fields: [assignedToEmployeeId], references: [id])
+  inventoryCount       InventoryCountHistory? @relation(fields: [inventoryCountId], references: [id], onDelete: SetNull)
   
   @@index([langameId])
+  @@index([inventoryCountId])
 }
 
 model SalaryBatch {
@@ -328,8 +344,10 @@ model InventoryCountHistory {
   name      String   // Название пересчета (например "Пересчет января 2025")
   data      Json     // JSON с данными о товарах и их количествах
   status    String   @default("DRAFT") // DRAFT, SAVED
+  archived  Boolean  @default(false) // Архивирован ли пересчет
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  shortages Shortage[] // Недостачи, созданные из этого пересчета
 }
 
 model SalaryPayment {
@@ -390,6 +408,102 @@ model LangameSettings {
   updatedAt         DateTime @updatedAt
 
   @@unique([id])
+}
+
+model SiteSettings {
+  id                String   @id @default(cuid())
+  siteName          String   @default("PayDay Syndicate") // Название сайта
+  siteIcon          String?  @default("PS") // Иконка сайта (текст или эмодзи)
+  theme             String   @default("dark") // Тема: dark, light, blue, purple, green
+  // Включенные функции
+  enableEmployees   Boolean  @default(true)
+  enableShifts      Boolean  @default(true)
+  enableProducts    Boolean  @default(true)
+  enableDebts       Boolean  @default(true)
+  enableShortages   Boolean  @default(true)
+  enableSalaries    Boolean  @default(true)
+  enableReports     Boolean  @default(true)
+  enableTasks        Boolean  @default(true)
+  enableChecklist   Boolean  @default(true)
+  enableLostItems   Boolean  @default(true)
+  enableMemos       Boolean  @default(true)
+  enablePayments     Boolean  @default(true)
+  enablePcManagement Boolean  @default(true)
+  enableProductOrder Boolean @default(true)
+  enableLangame     Boolean  @default(true)
+  enableTelegram    Boolean  @default(true)
+  // Настройки расчетного листа
+  payslipShowStamp  Boolean  @default(true) // Показывать печать
+  payslipBorderColor String  @default("#000000") // Цвет обводки листа
+  payslipWatermark  String?  // Текст водяного знака
+  payslipStampImage String?  // Путь к загруженной печати (PNG)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([id])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String   // ID пользователя, которому отправлено уведомление
+  employeeId  String?  // ID сотрудника (если уведомление связано с сотрудником)
+  type        String   // Тип уведомления: report, shift, task, payment, penalty, bonus, etc.
+  title       String   // Заголовок уведомления
+  message     String   // Текст уведомления
+  link        String?  // Ссылка на связанную страницу
+  read        Boolean  @default(false) // Прочитано ли уведомление
+  soundPlayed Boolean  @default(false) // Воспроизведен ли звук
+  createdAt   DateTime @default(now())
+  readAt      DateTime? // Время прочтения
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employee    Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model EmployeePermission {
+  id          String   @id @default(cuid())
+  employeeId  String   // ID сотрудника
+  permission  String   // Название права (например: "view_salaries", "edit_employees", "view_reports")
+  granted     Boolean  @default(true) // Предоставлено ли право
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, permission])
+  @@index([employeeId])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique // Название роли (например: "Менеджер", "Кассир")
+  nameRu      String   // Название роли на русском
+  description String?  // Описание роли
+  isSystem    Boolean  @default(false) // Системная роль (нельзя удалить)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  permissions RolePermission[] // Права роли
+  users       User[]   // Пользователи с этой ролью
+  employees   Employee[] // Сотрудники с этой ролью
+
+  @@index([name])
+}
+
+model RolePermission {
+  id          String   @id @default(cuid())
+  roleId      String   // ID роли
+  page        String   // Страница (например: "salaries", "employees", "reports")
+  action      String   // Действие (например: "view", "edit", "create", "delete")
+  scope       String   @default("all") // Область действия: "all", "own", "none"
+  granted     Boolean  @default(true) // Предоставлено ли право
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  role        Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, page, action])
+  @@index([roleId])
 }
 
 model PCMapping {

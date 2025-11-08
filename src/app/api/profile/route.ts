@@ -15,24 +15,48 @@ const updateProfileSchema = z.object({
 });
 
 export async function GET() {
-  const session = await getAuth();
-  const userId = ((session as any)?.user as any)?.id;
-  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
-  
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { employee: true },
-  });
-  
-  if (!user) return new NextResponse("Not found", { status: 404 });
-  
-  return NextResponse.json({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    employee: user.employee,
-  });
+  try {
+    const session = await getAuth();
+    const userId = ((session as any)?.user as any)?.id;
+    if (!userId) return new NextResponse("Unauthorized", { status: 401 });
+    
+    // Используем прямой SQL запрос для обхода проблем с отсутствующими колонками
+    const users = await prisma.$queryRaw`
+      SELECT 
+        u.id,
+        u.name,
+        u.email,
+        u.role,
+        u."employeeId",
+        e.id as "employeeIdFromTable",
+        e.name as "employeeName"
+      FROM "User" u
+      LEFT JOIN "Employee" e ON e.id = u."employeeId"
+      WHERE u.id = ${userId}
+      LIMIT 1;
+    ` as any[];
+    
+    if (!users || users.length === 0) {
+      return new NextResponse("Not found", { status: 404 });
+    }
+    
+    const user = users[0];
+    
+    return NextResponse.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      employeeId: user.employeeId,
+      employee: user.employeeId ? {
+        id: user.employeeId,
+        name: user.employeeName,
+      } : null,
+    });
+  } catch (error: any) {
+    console.error("GET profile error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: Request) {

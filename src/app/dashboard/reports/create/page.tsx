@@ -80,6 +80,17 @@ export default function CreateReportPage() {
 
   const [tableAdmin, setTableAdmin] = useState("");
   const [tableShiftPhase, setTableShiftPhase] = useState<"START" | "MIDDLE">("START");
+  const [tablePhotos, setTablePhotos] = useState<Record<string, File[]>>({
+    comfort_side_1: [],
+    comfort_side_2: [],
+    standard_side_1: [],
+    standard_side_2: [],
+    vip_side_1: [],
+    vip_side_2: [],
+    bootcamp_side_1: [],
+    bootcamp_side_2: [],
+    ps5_zone: [],
+  });
 
   const [playstationTime, setPlaystationTime] = useState("");
   const [playstationPc, setPlaystationPc] = useState("");
@@ -177,7 +188,7 @@ export default function CreateReportPage() {
       calculatedAmount = (prices[corkCategory] || 0) * (Number(corkQuantity) || 0);
       data = { category: corkCategory, quantity: Number(corkQuantity) || 0, pc: corkPc };
     } else if (type === "TABLE_STATUS") {
-      data = { admin: tableAdmin, shiftPhase: tableShiftPhase };
+      data = { admin: tableAdmin, shiftPhase: tableShiftPhase, photoCategories: {} };
     } else if (type === "PLAYSTATION") {
       data = { time: playstationTime, pc: playstationPc };
     } else if (type === "PROMOTION") {
@@ -210,7 +221,51 @@ export default function CreateReportPage() {
       const reportId = createdReport.id;
 
       // Если есть файлы, загружаем их
-      if (selectedFiles.length > 0) {
+      if (type === "TABLE_STATUS") {
+        // Для TABLE_STATUS загружаем фотографии по категориям
+        const photoCategories: Record<string, string[]> = {};
+        let hasPhotos = false;
+
+        for (const [category, files] of Object.entries(tablePhotos)) {
+          if (files.length > 0) {
+            hasPhotos = true;
+            const formData = new FormData();
+            formData.append("reportId", reportId);
+            formData.append("category", category);
+            files.forEach((file) => {
+              formData.append("files", file);
+            });
+
+            const uploadResponse = await fetch("/api/reports/upload", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!uploadResponse.ok) {
+              throw new Error(`Ошибка при загрузке файлов для категории ${category}`);
+            }
+
+            const uploadResult = await uploadResponse.json();
+            photoCategories[category] = uploadResult.files;
+          }
+        }
+
+        if (hasPhotos) {
+          // Обновляем отчет с путями к файлам по категориям
+          const updateResponse = await fetch(`/api/reports/${reportId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              data: { ...data, photoCategories },
+            }),
+          });
+
+          if (!updateResponse.ok) {
+            throw new Error("Ошибка при обновлении отчёта с файлами");
+          }
+        }
+      } else if (selectedFiles.length > 0) {
+        // Для других типов отчетов используем стандартную загрузку
         const formData = new FormData();
         formData.append("reportId", reportId);
         selectedFiles.forEach((file) => {
@@ -342,6 +397,8 @@ export default function CreateReportPage() {
             shiftPhase={tableShiftPhase}
             setShiftPhase={setTableShiftPhase}
             isAdmin={isAdmin}
+            photos={tablePhotos}
+            setPhotos={setTablePhotos}
           />
         )}
 
@@ -535,7 +592,36 @@ function CorkFeeReportFields(props: any) {
 }
 
 function TableStatusReportFields(props: any) {
-  const { admin, setAdmin, shiftPhase, setShiftPhase, isAdmin } = props;
+  const { admin, setAdmin, shiftPhase, setShiftPhase, isAdmin, photos, setPhotos } = props;
+
+  const categories = [
+    { key: "comfort_side_1", label: "Столы на Comfort Сторона №1" },
+    { key: "comfort_side_2", label: "Столы на Comfort Сторона №2" },
+    { key: "standard_side_1", label: "Столы на standard Сторона №1" },
+    { key: "standard_side_2", label: "Столы на standard Сторона №2" },
+    { key: "vip_side_1", label: "Столы на VIP Сторона №1" },
+    { key: "vip_side_2", label: "Столы на VIP Сторона №2" },
+    { key: "bootcamp_side_1", label: "Столы на BOOTCAMP Сторона №1" },
+    { key: "bootcamp_side_2", label: "Столы на BOOTCAMP Сторона №2" },
+    { key: "ps5_zone", label: "PS 5 Зона Фото" },
+  ];
+
+  const handleFileChange = (category: string, files: FileList | null) => {
+    if (files) {
+      setPhotos((prev: Record<string, File[]>) => ({
+        ...prev,
+        [category]: Array.from(files),
+      }));
+    }
+  };
+
+  const removeFile = (category: string, index: number) => {
+    setPhotos((prev: Record<string, File[]>) => ({
+      ...prev,
+      [category]: prev[category].filter((_, i) => i !== index),
+    }));
+  };
+
   return (
     <>
       {!isAdmin && (
@@ -550,6 +636,38 @@ function TableStatusReportFields(props: any) {
           <option value="START">Начало Смены</option>
           <option value="MIDDLE">Середина Смены</option>
         </select>
+      </div>
+      
+      <div className="mt-4 space-y-4">
+        <label className="block text-sm font-medium mb-2">Фотографии по категориям</label>
+        {categories.map((category) => (
+          <div key={category.key} className="border rounded p-3">
+            <label className="block text-sm font-medium mb-2">{category.label}</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(e) => handleFileChange(category.key, e.target.files)}
+              className="border rounded px-2 py-1 w-full text-sm"
+            />
+            {photos[category.key] && photos[category.key].length > 0 && (
+              <div className="mt-2 space-y-1">
+                {photos[category.key].map((file: File, index: number) => (
+                  <div key={index} className="flex items-center justify-between bg-gray-100 rounded px-2 py-1 text-sm">
+                    <span className="truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(category.key, index)}
+                      className="text-red-500 hover:text-red-700 ml-2"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </>
   );

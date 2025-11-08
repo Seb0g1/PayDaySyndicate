@@ -8,6 +8,7 @@ const updateSchema = z.object({
   date: z.string().optional(),
   data: z.any().optional(),
   status: z.string().optional(),
+  archived: z.boolean().optional(),
 });
 
 export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -40,6 +41,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (parsed.data.date !== undefined) updateData.date = new Date(parsed.data.date);
     if (parsed.data.data !== undefined) updateData.data = parsed.data.data;
     if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
+    if (parsed.data.archived !== undefined) updateData.archived = parsed.data.archived;
     
     const updated = await prisma.inventoryCountHistory.update({
       where: { id },

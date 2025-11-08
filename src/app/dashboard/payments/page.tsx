@@ -2,6 +2,8 @@
 import useSWR from "swr";
 import { useState } from "react";
 import { useNextIcons } from "@/components/NI";
+import { useSession } from "next-auth/react";
+import { useSuccess } from "@/components/SuccessProvider";
 
 type Payment = {
   id: string;
@@ -18,13 +20,49 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function PaymentsPage() {
   const NI = useNextIcons();
+  const { data: session } = useSession();
+  const { showSuccess } = useSuccess();
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  
+  const isDirector = (session?.user as any)?.role === "DIRECTOR";
+  
+  // Получаем список сотрудников для фильтра (только для DIRECTOR)
+  const { data: employees } = useSWR(isDirector ? "/api/employees" : null, fetcher);
+  
+  // Формируем URL для запроса выплат
+  const queryParams = new URLSearchParams();
+  if (periodStart && periodEnd) {
+    queryParams.append("periodStart", periodStart);
+    queryParams.append("periodEnd", periodEnd);
+  }
+  if (isDirector && selectedEmployeeId) {
+    queryParams.append("employeeId", selectedEmployeeId);
+  }
+  const queryString = queryParams.toString();
   
   const { data: payments, mutate } = useSWR<Payment[]>(
-    `/api/salary-payments${periodStart && periodEnd ? `?periodStart=${periodStart}&periodEnd=${periodEnd}` : ""}`,
+    `/api/salary-payments${queryString ? `?${queryString}` : ""}`,
     fetcher
   );
+  
+  const handleDelete = async (paymentId: string) => {
+    if (!confirm("Вы уверены, что хотите удалить эту выплату?")) return;
+    
+    try {
+      const res = await fetch(`/api/salary-payments?id=${paymentId}`, {
+        method: "DELETE",
+      });
+      
+      if (!res.ok) throw new Error("Ошибка при удалении выплаты");
+      
+      showSuccess("Выплата удалена!");
+      mutate();
+    } catch (error) {
+      alert("Ошибка при удалении выплаты");
+    }
+  };
   
   return (
     <div className="space-y-4">
@@ -32,6 +70,21 @@ export default function PaymentsPage() {
         <h1 className="text-xl font-bold text-white mb-4">История выплат</h1>
         
         <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 mb-4">
+          {isDirector && (
+            <div className="flex-1">
+              <label className="block text-xs mb-1 text-gray-400">Сотрудник</label>
+              <select
+                value={selectedEmployeeId}
+                onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                className="border rounded px-2 py-1 bg-gray-900 text-white border-gray-700 w-full"
+              >
+                <option value="">Все сотрудники</option>
+                {(employees ?? []).map((emp: any) => (
+                  <option key={emp.id} value={emp.id}>{emp.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex-1">
             <label className="block text-xs mb-1 text-gray-400">Период начала</label>
             <input
@@ -68,12 +121,13 @@ export default function PaymentsPage() {
                 <th className="p-3 text-white font-semibold">Статус</th>
                 <th className="p-3 text-white font-semibold">PDF</th>
                 <th className="p-3 text-white font-semibold">Заметки</th>
+                {isDirector && <th className="p-3 text-white font-semibold">Действия</th>}
               </tr>
             </thead>
             <tbody>
               {(payments ?? []).length === 0 && (
                 <tr>
-                  <td className="p-3 text-gray-400" colSpan={6}>Нет выплат за выбранный период</td>
+                  <td className="p-3 text-gray-400" colSpan={isDirector ? 7 : 6}>Нет выплат за выбранный период</td>
                 </tr>
               )}
               {(payments ?? []).map((payment) => (
@@ -108,10 +162,20 @@ export default function PaymentsPage() {
                     )}
                   </td>
                   <td className="p-3 text-gray-300 text-xs">{payment.notes || "—"}</td>
+                  {isDirector && (
+                    <td className="p-3">
+                      <button
+                        onClick={() => handleDelete(payment.id)}
+                        className="text-red-500 hover:text-red-400 flex items-center gap-1"
+                      >
+                        {NI ? <NI.Trash className="w-4 h-4" /> : "🗑️"} Удалить
+                      </button>
+                    </td>
+                  )}
                 </tr>
                 {/* Mobile view */}
                 <tr key={`${payment.id}-mobile`} className="border-b sm:hidden" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
-                  <td className="p-3" colSpan={6}>
+                  <td className="p-3" colSpan={isDirector ? 7 : 6}>
                     <div className="space-y-2">
                       <div className="font-medium text-white text-base">{payment.employee.name}</div>
                       <div className="space-y-1 text-xs text-gray-400">
@@ -138,6 +202,16 @@ export default function PaymentsPage() {
                           </a>
                         )}
                       </div>
+                      {isDirector && (
+                        <div className="pt-2 border-t" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+                          <button
+                            onClick={() => handleDelete(payment.id)}
+                            className="text-red-500 hover:text-red-400 text-xs flex items-center gap-1"
+                          >
+                            {NI ? <NI.Trash className="w-4 h-4" /> : "🗑️"} Удалить
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

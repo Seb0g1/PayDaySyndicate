@@ -23,6 +23,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     suggestedReplacement: z.any().optional(),
     resolved: z.boolean().optional(),
     assignedToEmployeeId: z.string().optional().nullable(),
+    excludedFromSalary: z.boolean().optional(),
   });
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

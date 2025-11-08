@@ -6,6 +6,9 @@ import Image from "next/image";
 import { useState } from "react";
 import { useLoading } from "@/components/LoadingProvider";
 import TabsNav from "@/components/TabsNav";
+import { useSiteSettings } from "@/components/SiteSettingsProvider";
+import NotificationBell from "@/components/NotificationBell";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 const allLinks = [
   { href: "/dashboard", label: "Главная", key: "home" },
@@ -42,6 +45,8 @@ export function Nav() {
   const links = allLinks.filter((l) => allowed.has(l.key));
   const [open, setOpen] = useState(false);
   const { start } = useLoading();
+  const { settings } = useSiteSettings();
+  const siteName = settings?.siteName || "PayDay Syndicate";
   return (
     <header className="border-b-2 border-red-500 bg-black backdrop-blur shadow-[0_0_20px_rgba(255,0,0,0.3)]">
       <div className="mx-auto max-w-7xl px-4 py-3 flex items-center gap-3">
@@ -50,10 +55,16 @@ export function Nav() {
           <div className="flex items-center justify-center w-7 h-7 border-2 border-red-500 bg-black">
             <div className="text-red-500 font-bold text-sm">PS</div>
           </div>
-          <span className="text-white tracking-wider">PAYDAY SYNDICATE</span>
+          <span className="text-white tracking-wider">{siteName.toUpperCase()}</span>
         </Link>
-        <div className="ml-auto hidden md:block">
-          <TabsNav tabs={links} />
+        <div className="ml-auto flex items-center gap-3">
+          <div className="hidden md:block">
+            <TabsNav tabs={links} />
+          </div>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <ThemeSwitcher />
+          </div>
         </div>
       </div>
 
@@ -66,7 +77,7 @@ export function Nav() {
                 <div className="flex items-center justify-center w-6 h-6 border-2 border-red-500 bg-black">
                   <div className="text-red-500 font-bold text-xs">PS</div>
                 </div>
-                <span className="text-white tracking-wider">PAYDAY SYNDICATE</span>
+                <span className="text-white tracking-wider">{siteName.toUpperCase()}</span>
               </div>
               <button className="rounded border-2 border-gray-800 bg-black text-white px-2 py-1 hover:border-red-500" onClick={() => setOpen(false)}>✕</button>
             </div>
