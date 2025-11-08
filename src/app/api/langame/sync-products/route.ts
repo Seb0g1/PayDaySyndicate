@@ -318,14 +318,37 @@ export async function POST() {
             updateData.price = price;
           }
           
-          await prisma.product.update({
-            where: { id: existing.id },
-            data: updateData,
-          });
-          updated++;
           if (isBurrito) {
-            console.log(`[API /langame/sync-products] === BURRITO PRODUCT UPDATED ===`);
+            console.log(`[API /langame/sync-products] === BURRITO PRODUCT UPDATING ===`);
+            console.log(`[API /langame/sync-products] Existing product:`, {
+              id: existing.id,
+              name: existing.name,
+              currentPrice: currentPrice,
+              currentStock: existing.stock,
+            });
             console.log(`[API /langame/sync-products] Update data:`, updateData);
+          }
+          
+          try {
+            await prisma.product.update({
+              where: { id: existing.id },
+              data: updateData,
+            });
+            updated++;
+            if (isBurrito) {
+              console.log(`[API /langame/sync-products] === BURRITO PRODUCT UPDATED SUCCESSFULLY ===`);
+            }
+          } catch (updateError: any) {
+            console.error(`[API /langame/sync-products] Error updating product ${existing.id}:`, updateError);
+            if (isBurrito) {
+              console.error(`[API /langame/sync-products] === BURRITO PRODUCT UPDATE ERROR ===`);
+              console.error(`[API /langame/sync-products] Error details:`, {
+                message: updateError?.message,
+                code: updateError?.code,
+                name: updateError?.name,
+              });
+            }
+            throw updateError;
           }
         } else {
           // Создаем новый товар
@@ -342,18 +365,31 @@ export async function POST() {
             });
           }
           
-          await prisma.product.create({
-            data: {
-              name: product.name,
-              price: finalPrice,
-              stock: stock,
-              langameId: product.id,
-              lastImportedAt: new Date(),
-            },
-          });
-          created++;
-          if (isBurrito) {
-            console.log(`[API /langame/sync-products] === BURRITO PRODUCT CREATED ===`);
+          try {
+            await prisma.product.create({
+              data: {
+                name: product.name,
+                price: finalPrice,
+                stock: stock,
+                langameId: product.id,
+                lastImportedAt: new Date(),
+              },
+            });
+            created++;
+            if (isBurrito) {
+              console.log(`[API /langame/sync-products] === BURRITO PRODUCT CREATED SUCCESSFULLY ===`);
+            }
+          } catch (createError: any) {
+            console.error(`[API /langame/sync-products] Error creating product ${product.id} (${product.name}):`, createError);
+            if (isBurrito) {
+              console.error(`[API /langame/sync-products] === BURRITO PRODUCT CREATE ERROR ===`);
+              console.error(`[API /langame/sync-products] Error details:`, {
+                message: createError?.message,
+                code: createError?.code,
+                name: createError?.name,
+              });
+            }
+            throw createError;
           }
         }
       } catch (productError: any) {
