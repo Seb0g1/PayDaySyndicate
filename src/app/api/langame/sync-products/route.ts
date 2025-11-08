@@ -17,7 +17,15 @@ export async function POST() {
     
     if (!tableExists || tableExists.length === 0) {
       return NextResponse.json(
-        { error: "Таблица LangameSettings не существует" },
+        { 
+          error: "Таблица LangameSettings не существует",
+          success: false,
+          created: 0,
+          updated: 0,
+          skippedInactive: 0,
+          skippedExcluded: 0,
+          total: 0,
+        },
         { status: 400 }
       );
     }

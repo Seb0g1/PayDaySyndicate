@@ -8,20 +8,75 @@ export async function GET() {
     if (forbidden) return forbidden;
 
     // Получаем товары с остатком <= 15 (которых мало, нужно заказать)
-    const products = await prisma.product.findMany({
-      where: {
-        stock: { lte: 15 },
-        isHidden: false,
-      },
-      include: {
-        categoryRef: true,
-        orderInfo: true,
-      },
-      orderBy: [
-        { stock: "asc" }, // Сначала товары с наименьшим остатком
-        { name: "asc" },
-      ],
-    });
+    // Используем прямой SQL запрос для обхода проблем с отсутствующими колонками
+    let products: any[] = [];
+    try {
+      // Проверяем, существует ли таблица ProductOrderInfo
+      const orderInfoTableExists = await prisma.$queryRaw`
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'ProductOrderInfo' 
+        LIMIT 1;
+      ` as any[];
+      
+      if (orderInfoTableExists && orderInfoTableExists.length > 0) {
+        // Если таблица существует, используем JOIN
+        products = await prisma.$queryRaw`
+          SELECT 
+            p.id,
+            p.name,
+            p.price,
+            p.stock,
+            p."isHidden",
+            p."categoryId",
+            c.name as "categoryName",
+            oi."officialName",
+            oi."quantityPerBox"
+          FROM "Product" p
+          LEFT JOIN "Category" c ON c.id = p."categoryId"
+          LEFT JOIN "ProductOrderInfo" oi ON oi."productId" = p.id
+          WHERE p.stock <= 15
+            AND p."isHidden" = false
+          ORDER BY p.stock ASC, p.name ASC
+        ` as any[];
+      } else {
+        // Если таблицы нет, используем простой запрос без orderInfo
+        products = await prisma.$queryRaw`
+          SELECT 
+            p.id,
+            p.name,
+            p.price,
+            p.stock,
+            p."isHidden",
+            p."categoryId",
+            c.name as "categoryName"
+          FROM "Product" p
+          LEFT JOIN "Category" c ON c.id = p."categoryId"
+          WHERE p.stock <= 15
+            AND p."isHidden" = false
+          ORDER BY p.stock ASC, p.name ASC
+        ` as any[];
+      }
+    } catch (dbError: any) {
+      console.error("Error fetching products:", dbError);
+      // Возвращаем пустой массив вместо ошибки
+      return NextResponse.json([]);
+    }
+
+    // Форматируем результат для клиента
+    const formatted = (products || []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price) || 0,
+      stock: Number(p.stock) || 0,
+      isHidden: p.isHidden || false,
+      categoryId: p.categoryId || null,
+      categoryRef: p.categoryName ? { name: p.categoryName } : null,
+      category: p.categoryName || null,
+      orderInfo: p.officialName ? {
+        officialName: p.officialName,
+        quantityPerBox: p.quantityPerBox ? Number(p.quantityPerBox) : null,
+      } : null,
+    }));
 
     // Получаем список исключенных ID товаров из LangameSettings
     try {
@@ -35,9 +90,17 @@ export async function GET() {
       if (tableExists && tableExists.length > 0) {
         const langameSettings = await prisma.langameSettings.findFirst();
         if (langameSettings?.excludedProductIds && langameSettings.excludedProductIds.length > 0) {
-          return NextResponse.json(
-            products.filter((p) => !p.langameId || !langameSettings.excludedProductIds.includes(p.langameId))
-          );
+          // Получаем langameId для каждого продукта
+          const productsWithLangame = await prisma.$queryRaw`
+            SELECT id, "langameId" FROM "Product" WHERE id = ANY(${formatted.map(p => p.id)}::TEXT[])
+          ` as any[];
+          
+          const langameMap = new Map(productsWithLangame.map((p: any) => [p.id, p.langameId]));
+          const filtered = formatted.filter((p: any) => {
+            const langameId = langameMap.get(p.id);
+            return !langameId || !langameSettings.excludedProductIds.includes(langameId);
+          });
+          return NextResponse.json(filtered);
         }
       }
     } catch (error) {
@@ -45,7 +108,7 @@ export async function GET() {
       console.warn("Error checking LangameSettings:", error);
     }
 
-    return NextResponse.json(products);
+    return NextResponse.json(formatted);
   } catch (error: any) {
     console.error("Error fetching products for order:", error);
     return NextResponse.json(

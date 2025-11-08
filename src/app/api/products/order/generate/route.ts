@@ -8,23 +8,48 @@ export async function GET() {
     if (forbidden) return forbidden;
 
     // Получаем товары с остатком <= 15 (которых мало, нужно заказать) и информацией о заказе
-    const products = await prisma.product.findMany({
-      where: {
-        stock: { lte: 15 },
-        isHidden: false,
-        orderInfo: {
-          officialName: { not: null },
-          quantityPerBox: { not: null },
-        },
-      },
-      include: {
-        orderInfo: true,
-      },
-      orderBy: [
-        { stock: "asc" }, // Сначала товары с наименьшим остатком
-        { name: "asc" },
-      ],
-    });
+    // Используем прямой SQL запрос для обхода проблем с отсутствующими колонками
+    let products: any[] = [];
+    try {
+      // Проверяем, существует ли таблица ProductOrderInfo
+      const orderInfoTableExists = await prisma.$queryRaw`
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'ProductOrderInfo' 
+        LIMIT 1;
+      ` as any[];
+      
+      if (orderInfoTableExists && orderInfoTableExists.length > 0) {
+        // Если таблица существует, используем JOIN с фильтром
+        products = await prisma.$queryRaw`
+          SELECT 
+            p.id,
+            p.name,
+            p.stock,
+            oi."officialName",
+            oi."quantityPerBox"
+          FROM "Product" p
+          INNER JOIN "ProductOrderInfo" oi ON oi."productId" = p.id
+          WHERE p.stock <= 15
+            AND p."isHidden" = false
+            AND oi."officialName" IS NOT NULL
+            AND oi."quantityPerBox" IS NOT NULL
+          ORDER BY p.stock ASC, p.name ASC
+        ` as any[];
+      } else {
+        // Если таблицы нет, возвращаем пустой массив
+        return NextResponse.json({
+          items: [],
+          text: "",
+        });
+      }
+    } catch (dbError: any) {
+      console.error("Error fetching products:", dbError);
+      // Возвращаем пустой результат вместо ошибки
+      return NextResponse.json({
+        items: [],
+        text: "",
+      });
+    }
 
     // Получаем список исключенных ID товаров из LangameSettings
     let filteredProducts = products;
@@ -39,9 +64,19 @@ export async function GET() {
       if (tableExists && tableExists.length > 0) {
         const langameSettings = await prisma.langameSettings.findFirst();
         if (langameSettings?.excludedProductIds && langameSettings.excludedProductIds.length > 0) {
-          filteredProducts = products.filter(
-            (p) => !p.langameId || !langameSettings.excludedProductIds.includes(p.langameId)
-          );
+          // Получаем langameId для каждого продукта
+          const productIds = products.map((p: any) => p.id);
+          if (productIds.length > 0) {
+            const productsWithLangame = await prisma.$queryRaw`
+              SELECT id, "langameId" FROM "Product" WHERE id = ANY(${productIds}::TEXT[])
+            ` as any[];
+            
+            const langameMap = new Map(productsWithLangame.map((p: any) => [p.id, p.langameId]));
+            filteredProducts = products.filter((p: any) => {
+              const langameId = langameMap.get(p.id);
+              return !langameId || !langameSettings.excludedProductIds.includes(langameId);
+            });
+          }
         }
       }
     } catch (error) {
@@ -51,30 +86,30 @@ export async function GET() {
 
     // Формируем список товаров для заказа
     // Для товаров с остатком <= 15 заказываем минимум 1 уп.
-    const orderList = filteredProducts
-      .filter((p) => p.orderInfo && p.orderInfo.officialName && p.orderInfo.quantityPerBox)
-      .map((p) => {
-        const orderInfo = p.orderInfo!;
+    const orderList = (filteredProducts || [])
+      .filter((p: any) => p.officialName && p.quantityPerBox)
+      .map((p: any) => {
         const needed = 20; // Минимальный остаток для заказа (можно настроить)
-        const currentStock = p.stock;
+        const currentStock = Number(p.stock) || 0;
         const shortage = Math.max(0, needed - currentStock);
+        const quantityPerBox = Number(p.quantityPerBox) || 1;
         // Если остаток меньше нужного, заказываем минимум 1 уп.
         // Если остаток уже больше нужного, не заказываем
-        const boxes = currentStock >= needed ? 0 : Math.max(1, Math.ceil(shortage / orderInfo.quantityPerBox!));
+        const boxes = currentStock >= needed ? 0 : Math.max(1, Math.ceil(shortage / quantityPerBox));
         
         return {
           productId: p.id,
           productName: p.name,
-          officialName: orderInfo.officialName,
-          quantityPerBox: orderInfo.quantityPerBox,
+          officialName: p.officialName,
+          quantityPerBox: quantityPerBox,
           currentStock: currentStock,
           needed: needed,
           shortage: shortage,
           boxes: boxes,
-          orderText: `${orderInfo.officialName} — ${boxes} уп.`,
+          orderText: `${p.officialName} — ${boxes} уп.`,
         };
       })
-      .filter((item) => item.boxes > 0); // Только товары, которые нужно заказать
+      .filter((item: any) => item.boxes > 0); // Только товары, которые нужно заказать
 
     return NextResponse.json({
       items: orderList,
