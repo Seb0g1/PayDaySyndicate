@@ -5,9 +5,15 @@ type AppRole = "DIRECTOR" | "SENIOR_ADMIN" | "ADMIN" | "EMPLOYEE";
 const rank: Record<AppRole, number> = { DIRECTOR: 3, SENIOR_ADMIN: 2, ADMIN: 1, EMPLOYEE: 0 } as const;
 
 async function getRole(): Promise<AppRole> {
-  const session = await getAuth();
-  const role = (((session as any)?.user as any)?.role ?? "EMPLOYEE") as AppRole;
-  return role;
+  try {
+    const session = await getAuth();
+    const role = (((session as any)?.user as any)?.role ?? "EMPLOYEE") as AppRole;
+    return role;
+  } catch (error: any) {
+    console.error("[Guards] Error getting role:", error);
+    // Return EMPLOYEE as default if there's an error
+    return "EMPLOYEE";
+  }
 }
 
 function forbid() {

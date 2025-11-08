@@ -4,10 +4,21 @@ import { NextResponse } from "next/server";
 import { fetchLangameGoods, fetchLangameProducts, type LangameSettings } from "@/lib/langame";
 
 export async function POST() {
-  const forbidden = await requireAdmin();
-  if (forbidden) return forbidden;
-
   try {
+    // Check admin access - wrap in try-catch to handle errors
+    let forbidden;
+    try {
+      forbidden = await requireAdmin();
+    } catch (error: any) {
+      console.error("[API /langame/sync-products] Error checking admin access:", error);
+      return NextResponse.json(
+        { error: "Failed to verify admin access" },
+        { status: 500 }
+      );
+    }
+    
+    if (forbidden) return forbidden;
+
     // Проверяем, существует ли таблица LangameSettings
     const tableExists = await prisma.$queryRaw`
       SELECT 1 FROM information_schema.tables 
@@ -208,18 +219,19 @@ export async function POST() {
       }
     }
 
-      return NextResponse.json({
-        success: true,
-        created,
-        updated,
-        skippedInactive,
-        skippedExcluded,
-        total: Array.isArray(products) ? products.length : 0,
-      });
+    return NextResponse.json({
+      success: true,
+      created,
+      updated,
+      skippedInactive,
+      skippedExcluded,
+      total: Array.isArray(products) ? products.length : 0,
+    });
   } catch (error: any) {
-    console.error("Error syncing products:", error);
+    console.error("[API /langame/sync-products] Unexpected error:", error);
+    console.error("[API /langame/sync-products] Error stack:", error.stack);
     return NextResponse.json(
-      { error: error.message || "Ошибка синхронизации товаров" },
+      { error: error.message || "Внутренняя ошибка сервера" },
       { status: 500 }
     );
   }
