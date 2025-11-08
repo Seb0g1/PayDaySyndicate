@@ -29,5 +29,6 @@ CREATE TABLE "SiteSettings" (
 CREATE UNIQUE INDEX "SiteSettings_id_key" ON "SiteSettings"("id");
 
 -- Insert default settings
-INSERT INTO "SiteSettings" ("id", "siteName", "theme") VALUES ('default', 'PayDay Syndicate', 'dark');
+INSERT INTO "SiteSettings" ("id", "siteName", "theme", "createdAt", "updatedAt") 
+VALUES ('default', 'PayDay Syndicate', 'dark', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
