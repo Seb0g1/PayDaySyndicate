@@ -196,7 +196,7 @@ export async function POST() {
           continue;
         }
         
-        // Специальное логирование для товара "Cyber Буррито курица"
+        // Специальное логирование для товара "Cyber Буррито курица" или "Cyber Буррито (Курица)"
         const isBurrito = product.name && (
           product.name.toLowerCase().includes("буррито") || 
           product.name.toLowerCase().includes("burrito")
@@ -274,14 +274,31 @@ export async function POST() {
         if (isBurrito) {
           console.log(`[API /langame/sync-products] === BURRITO PRODUCT PROCESSING ===`);
           console.log(`[API /langame/sync-products] Stock: ${stock}, Price: ${price}, PriceFromGoods: ${priceFromGoods}, PriceFromProduct: ${priceFromProduct}`);
+          console.log(`[API /langame/sync-products] Goods data:`, goodsData);
+          console.log(`[API /langame/sync-products] Product fields:`, Object.keys(product));
         }
         
-        const existing = await prisma.product.findUnique({
-          where: { langameId: product.id },
-        });
+        let existing;
+        try {
+          existing = await prisma.product.findUnique({
+            where: { langameId: product.id },
+          });
+        } catch (dbError: any) {
+          console.error(`[API /langame/sync-products] Error finding existing product for langameId ${product.id}:`, dbError);
+          if (isBurrito) {
+            console.error(`[API /langame/sync-products] === BURRITO PRODUCT DB ERROR ===`);
+            console.error(`[API /langame/sync-products] Error details:`, {
+              message: dbError?.message,
+              code: dbError?.code,
+              name: dbError?.name,
+            });
+          }
+          // Продолжаем обработку, даже если не удалось найти существующий товар
+          existing = null;
+        }
 
         if (isBurrito) {
-          console.log(`[API /langame/sync-products] Existing product found:`, existing ? `Yes (ID: ${existing.id})` : "No");
+          console.log(`[API /langame/sync-products] Existing product found:`, existing ? `Yes (ID: ${existing.id}, name: ${existing.name})` : "No");
         }
 
         if (existing) {
