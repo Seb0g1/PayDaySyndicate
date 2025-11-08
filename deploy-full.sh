@@ -118,9 +118,24 @@ END
 SELECT 'CREATE DATABASE $DB_NAME OWNER $DB_USER'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DB_NAME')\gexec
 
--- Предоставление прав
+-- Предоставление прав на базу данных
 GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
 ALTER DATABASE $DB_NAME OWNER TO $DB_USER;
+EOF
+
+# Предоставление прав на все таблицы в схеме public
+sudo -u postgres psql -d "$DB_NAME" <<EOF
+-- Предоставление прав на схему public
+GRANT ALL ON SCHEMA public TO $DB_USER;
+ALTER SCHEMA public OWNER TO $DB_USER;
+
+-- Предоставление прав на все существующие таблицы
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $DB_USER;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;
+
+-- Предоставление прав на все будущие таблицы
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $DB_USER;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $DB_USER;
 EOF
 
 check_success "PostgreSQL настроен"
