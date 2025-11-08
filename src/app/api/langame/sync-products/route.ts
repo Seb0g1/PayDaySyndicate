@@ -185,12 +185,40 @@ export async function POST() {
     // Синхронизируем товары (только активные, пропускаем исключенные)
     console.log("[API /langame/sync-products] Starting product sync loop, products count:", products.length);
     
+    // Собираем статистику по значениям active
+    const activeStats: Record<string, number> = {};
+    const activeValueExamples: Record<string, any[]> = {};
+    
     // Логируем первые несколько товаров для отладки проверки active
     if (products.length > 0) {
-      console.log("[API /langame/sync-products] Sample product (first 3) for active check:");
-      for (let i = 0; i < Math.min(3, products.length); i++) {
+      console.log("[API /langame/sync-products] Analyzing active field values...");
+      for (let i = 0; i < Math.min(20, products.length); i++) {
         const p = products[i];
-        console.log(`  Product ${i + 1}: id=${p.id}, name=${p.name}, active=${p.active} (type: ${typeof p.active}), all keys:`, Object.keys(p));
+        const activeVal = (p as any).active;
+        const activeKey = String(activeVal) + " (type: " + typeof activeVal + ")";
+        
+        if (!activeStats[activeKey]) {
+          activeStats[activeKey] = 0;
+          activeValueExamples[activeKey] = [];
+        }
+        activeStats[activeKey]++;
+        
+        if (activeValueExamples[activeKey].length < 3) {
+          activeValueExamples[activeKey].push({
+            id: p.id,
+            name: p.name,
+            active: activeVal,
+            allKeys: Object.keys(p),
+          });
+        }
+      }
+      
+      console.log("[API /langame/sync-products] Active field statistics (first 20 products):");
+      for (const [key, count] of Object.entries(activeStats)) {
+        console.log(`  ${key}: ${count} products`);
+        if (activeValueExamples[key] && activeValueExamples[key].length > 0) {
+          console.log(`    Examples:`, JSON.stringify(activeValueExamples[key], null, 2));
+        }
       }
     }
     
@@ -204,13 +232,42 @@ export async function POST() {
         // Проверяем активность товара - более гибкая проверка
         // active может быть: 1, "1", true, или отсутствовать
         const activeValue = (product as any).active;
-        const isActiveValue = activeValue === 1 || activeValue === "1" || activeValue === true || 
-                              (typeof activeValue === "string" && activeValue.toLowerCase() === "true") ||
-                              Number(activeValue) === 1; // Пробуем преобразовать в число
         
-        // Если active отсутствует или равен undefined/null, проверяем другие поля
+        // Проверяем различные варианты активного состояния
+        // Также проверяем обратную логику (может быть active=0 означает активный)
+        const numValue = Number(activeValue);
+        const isActiveValue = 
+          activeValue === 1 || 
+          activeValue === "1" || 
+          activeValue === true || 
+          (typeof activeValue === "string" && activeValue.toLowerCase() === "true") ||
+          (numValue === 1 && !isNaN(numValue)); // Пробуем преобразовать в число
+        
+        // Проверяем обратную логику (может быть 0 = активный, 1 = неактивный)
+        const isInactiveValue = 
+          activeValue === 0 || 
+          activeValue === "0" || 
+          activeValue === false ||
+          (typeof activeValue === "string" && activeValue.toLowerCase() === "false") ||
+          (numValue === 0 && !isNaN(numValue));
+        
+        // Если active отсутствует или равен undefined/null, считаем товар активным
         const hasActiveField = activeValue !== undefined && activeValue !== null;
-        const isActive = hasActiveField ? isActiveValue : true; // Если поле active отсутствует, считаем товар активным
+        
+        // Если поле active отсутствует, считаем товар активным
+        // Если поле есть, проверяем значение
+        let isActive: boolean;
+        if (!hasActiveField) {
+          isActive = true; // Если поле active отсутствует, считаем товар активным
+        } else if (isInactiveValue) {
+          isActive = false; // Явно неактивный
+        } else if (isActiveValue) {
+          isActive = true; // Явно активный
+        } else {
+          // Если значение не распознано, считаем активным (на всякий случай)
+          isActive = true;
+          console.warn(`[API /langame/sync-products] Unknown active value for product ${product.id}: ${activeValue} (type: ${typeof activeValue}), treating as active`);
+        }
         
         // Логируем первые несколько товаров для отладки
         if (product.id === products[0]?.id || product.id === products[1]?.id || product.id === products[2]?.id) {
@@ -221,10 +278,15 @@ export async function POST() {
         // Пропускаем товары, которые не активны
         if (!isActive) {
           skippedInactive++;
-          if (skippedInactive <= 10) { // Логируем первые 10 пропущенных
-            console.log(`[API /langame/sync-products] Skipping inactive product: id=${product.id}, name=${product.name}, active=${activeValue} (type: ${typeof activeValue})`);
+          if (skippedInactive <= 20) { // Логируем первые 20 пропущенных
+            console.log(`[API /langame/sync-products] Skipping inactive product: id=${product.id}, name=${product.name}, active=${activeValue} (type: ${typeof activeValue}), isActiveValue=${isActiveValue}`);
           }
           continue;
+        }
+        
+        // Логируем первые несколько активных товаров
+        if (created + updated < 5) {
+          console.log(`[API /langame/sync-products] Processing active product: id=${product.id}, name=${product.name}, active=${activeValue} (type: ${typeof activeValue})`);
         }
         
         // Пропускаем товары из списка исключений
