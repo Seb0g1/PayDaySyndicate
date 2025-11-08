@@ -46,23 +46,76 @@ async function main() {
       if (!employeeId) {
         console.log("Создаем связанного сотрудника...");
         
-        // Создаем сотрудника
-        const employeeResult = await prisma.$queryRaw`
-          INSERT INTO "Employee" (id, name, email, "hireDate", "payRate", "payUnit", role, "userRole", "createdAt", "updatedAt")
-          VALUES (
-            gen_random_uuid()::TEXT,
-            ${name},
-            ${email},
-            NOW(),
-            0::DECIMAL(10, 2),
-            'DAILY'::"PayRateUnit",
-            'OTHER'::"EmployeeRole",
-            ${role}::"UserRole",
-            NOW(),
-            NOW()
-          )
-          RETURNING id;
+        // Создаем сотрудника (без userRole, так как колонка может не существовать)
+        // Проверяем, существует ли колонка userRole
+        const hasUserRole = await prisma.$queryRaw`
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'Employee' AND column_name = 'userRole'
+          LIMIT 1;
         ` as any[];
+        
+        if (hasUserRole && hasUserRole.length > 0) {
+          // Колонка существует, используем её
+          const employeeResult = await prisma.$queryRaw`
+            INSERT INTO "Employee" (id, name, email, "hireDate", "payRate", "payUnit", role, "userRole", "createdAt", "updatedAt")
+            VALUES (
+              gen_random_uuid()::TEXT,
+              ${name},
+              ${email},
+              NOW(),
+              0::DECIMAL(10, 2),
+              'DAILY'::"PayRateUnit",
+              'OTHER'::"EmployeeRole",
+              ${role}::"UserRole",
+              NOW(),
+              NOW()
+            )
+            RETURNING id;
+          ` as any[];
+          
+          if (employeeResult && employeeResult.length > 0) {
+            const newEmployeeId = employeeResult[0].id;
+            
+            // Связываем пользователя с сотрудником
+            await prisma.$executeRaw`
+              UPDATE "User"
+              SET "employeeId" = ${newEmployeeId}
+              WHERE id = ${userId};
+            `;
+            
+            console.log(`✅ Сотрудник создан и связан с пользователем`);
+          }
+        } else {
+          // Колонка не существует, создаем без неё
+          const employeeResult = await prisma.$queryRaw`
+            INSERT INTO "Employee" (id, name, email, "hireDate", "payRate", "payUnit", role, "createdAt", "updatedAt")
+            VALUES (
+              gen_random_uuid()::TEXT,
+              ${name},
+              ${email},
+              NOW(),
+              0::DECIMAL(10, 2),
+              'DAILY'::"PayRateUnit",
+              'OTHER'::"EmployeeRole",
+              NOW(),
+              NOW()
+            )
+            RETURNING id;
+          ` as any[];
+          
+          if (employeeResult && employeeResult.length > 0) {
+            const newEmployeeId = employeeResult[0].id;
+            
+            // Связываем пользователя с сотрудником
+            await prisma.$executeRaw`
+              UPDATE "User"
+              SET "employeeId" = ${newEmployeeId}
+              WHERE id = ${userId};
+            `;
+            
+            console.log(`✅ Сотрудник создан и связан с пользователем`);
+          }
+        }
         
         if (employeeResult && employeeResult.length > 0) {
           const newEmployeeId = employeeResult[0].id;
@@ -107,22 +160,51 @@ async function main() {
         // Создаем связанного сотрудника
         console.log("Создаем связанного сотрудника...");
         
-        const employeeResult = await prisma.$queryRaw`
-          INSERT INTO "Employee" (id, name, email, "hireDate", "payRate", "payUnit", role, "userRole", "createdAt", "updatedAt")
-          VALUES (
-            gen_random_uuid()::TEXT,
-            ${name},
-            ${email},
-            NOW(),
-            0::DECIMAL(10, 2),
-            'DAILY'::"PayRateUnit",
-            'OTHER'::"EmployeeRole",
-            ${role}::"UserRole",
-            NOW(),
-            NOW()
-          )
-          RETURNING id;
+        // Проверяем, существует ли колонка userRole
+        const hasUserRole = await prisma.$queryRaw`
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'Employee' AND column_name = 'userRole'
+          LIMIT 1;
         ` as any[];
+        
+        let employeeResult: any[];
+        
+        if (hasUserRole && hasUserRole.length > 0) {
+          // Колонка существует, используем её
+          employeeResult = await prisma.$queryRaw`
+            INSERT INTO "Employee" (id, name, email, "hireDate", "payRate", "payUnit", role, "userRole", "createdAt", "updatedAt")
+            VALUES (
+              gen_random_uuid()::TEXT,
+              ${name},
+              ${email},
+              NOW(),
+              0::DECIMAL(10, 2),
+              'DAILY'::"PayRateUnit",
+              'OTHER'::"EmployeeRole",
+              ${role}::"UserRole",
+              NOW(),
+              NOW()
+            )
+            RETURNING id;
+          ` as any[];
+        } else {
+          // Колонка не существует, создаем без неё
+          employeeResult = await prisma.$queryRaw`
+            INSERT INTO "Employee" (id, name, email, "hireDate", "payRate", "payUnit", role, "createdAt", "updatedAt")
+            VALUES (
+              gen_random_uuid()::TEXT,
+              ${name},
+              ${email},
+              NOW(),
+              0::DECIMAL(10, 2),
+              'DAILY'::"PayRateUnit",
+              'OTHER'::"EmployeeRole",
+              NOW(),
+              NOW()
+            )
+            RETURNING id;
+          ` as any[];
+        }
         
         if (employeeResult && employeeResult.length > 0) {
           const employeeId = employeeResult[0].id;

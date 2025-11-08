@@ -79,28 +79,61 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { name, email, phone, telegramTag, hireDate, payRate, payUnit, userRole, customRoleId } = parsed.data;
   
-  // Используем прямой SQL запрос для создания сотрудника
-  const result = await prisma.$queryRaw`
-    INSERT INTO "Employee" (
-      id, name, email, phone, "telegramTag", "hireDate", "payRate", "payUnit", role, "userRole", "customRoleId", "createdAt", "updatedAt"
-    )
-    VALUES (
-      gen_random_uuid()::TEXT,
-      ${name},
-      ${email || null},
-      ${phone || null},
-      ${telegramTag || null},
-      ${new Date(hireDate)}::TIMESTAMP,
-      ${payRate}::DECIMAL(10, 2),
-      ${payUnit}::"PayRateUnit",
-      'OTHER'::"EmployeeRole",
-      ${userRole || null}::"UserRole",
-      ${customRoleId || null},
-      NOW(),
-      NOW()
-    )
-    RETURNING *;
+  // Проверяем, существует ли колонка userRole
+  const hasUserRole = await prisma.$queryRaw`
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'Employee' AND column_name = 'userRole'
+    LIMIT 1;
   ` as any[];
+  
+  let result: any[];
+  
+  if (hasUserRole && hasUserRole.length > 0) {
+    // Колонка существует, используем её
+    result = await prisma.$queryRaw`
+      INSERT INTO "Employee" (
+        id, name, email, phone, "telegramTag", "hireDate", "payRate", "payUnit", role, "userRole", "customRoleId", "createdAt", "updatedAt"
+      )
+      VALUES (
+        gen_random_uuid()::TEXT,
+        ${name},
+        ${email || null},
+        ${phone || null},
+        ${telegramTag || null},
+        ${new Date(hireDate)}::TIMESTAMP,
+        ${payRate}::DECIMAL(10, 2),
+        ${payUnit}::"PayRateUnit",
+        'OTHER'::"EmployeeRole",
+        ${userRole || null}::"UserRole",
+        ${customRoleId || null},
+        NOW(),
+        NOW()
+      )
+      RETURNING *;
+    ` as any[];
+  } else {
+    // Колонка не существует, создаем без неё
+    result = await prisma.$queryRaw`
+      INSERT INTO "Employee" (
+        id, name, email, phone, "telegramTag", "hireDate", "payRate", "payUnit", role, "customRoleId", "createdAt", "updatedAt"
+      )
+      VALUES (
+        gen_random_uuid()::TEXT,
+        ${name},
+        ${email || null},
+        ${phone || null},
+        ${telegramTag || null},
+        ${new Date(hireDate)}::TIMESTAMP,
+        ${payRate}::DECIMAL(10, 2),
+        ${payUnit}::"PayRateUnit",
+        'OTHER'::"EmployeeRole",
+        ${customRoleId || null},
+        NOW(),
+        NOW()
+      )
+      RETURNING *;
+    ` as any[];
+  }
   
   if (!result || result.length === 0) {
     return NextResponse.json({ error: "Не удалось создать сотрудника" }, { status: 500 });
