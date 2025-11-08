@@ -372,7 +372,24 @@ export async function POST() {
                 stock: updatedProduct.stock,
                 isHidden: updatedProduct.isHidden,
                 langameId: updatedProduct.langameId,
+                lastImportedAt: updatedProduct.lastImportedAt,
               });
+              // Проверяем, что товар действительно обновлен в базе данных
+              const verifyProduct = await prisma.product.findUnique({
+                where: { id: existing.id },
+              });
+              if (verifyProduct) {
+                console.log(`[API /langame/sync-products] === BURRITO PRODUCT VERIFIED IN DB ===`);
+                console.log(`[API /langame/sync-products] Verified product:`, {
+                  id: verifyProduct.id,
+                  name: verifyProduct.name,
+                  stock: verifyProduct.stock,
+                  isHidden: verifyProduct.isHidden,
+                  langameId: verifyProduct.langameId,
+                });
+              } else {
+                console.error(`[API /langame/sync-products] === BURRITO PRODUCT NOT FOUND IN DB AFTER UPDATE ===`);
+              }
             }
           } catch (updateError: any) {
             console.error(`[API /langame/sync-products] Error updating product ${existing.id}:`, updateError);
@@ -402,7 +419,7 @@ export async function POST() {
           }
           
           try {
-            await prisma.product.create({
+            const createdProduct = await prisma.product.create({
               data: {
                 name: product.name,
                 price: finalPrice,
@@ -414,6 +431,31 @@ export async function POST() {
             created++;
             if (isBurrito) {
               console.log(`[API /langame/sync-products] === BURRITO PRODUCT CREATED SUCCESSFULLY ===`);
+              console.log(`[API /langame/sync-products] Created product data:`, {
+                id: createdProduct.id,
+                name: createdProduct.name,
+                price: createdProduct.price,
+                stock: createdProduct.stock,
+                isHidden: createdProduct.isHidden,
+                langameId: createdProduct.langameId,
+                lastImportedAt: createdProduct.lastImportedAt,
+              });
+              // Проверяем, что товар действительно создан в базе данных
+              const verifyProduct = await prisma.product.findUnique({
+                where: { langameId: product.id },
+              });
+              if (verifyProduct) {
+                console.log(`[API /langame/sync-products] === BURRITO PRODUCT VERIFIED IN DB ===`);
+                console.log(`[API /langame/sync-products] Verified product:`, {
+                  id: verifyProduct.id,
+                  name: verifyProduct.name,
+                  stock: verifyProduct.stock,
+                  isHidden: verifyProduct.isHidden,
+                  langameId: verifyProduct.langameId,
+                });
+              } else {
+                console.error(`[API /langame/sync-products] === BURRITO PRODUCT NOT FOUND IN DB AFTER CREATE ===`);
+              }
             }
           } catch (createError: any) {
             console.error(`[API /langame/sync-products] Error creating product ${product.id} (${product.name}):`, createError);
