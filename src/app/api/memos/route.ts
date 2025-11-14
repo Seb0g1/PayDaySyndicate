@@ -80,7 +80,7 @@ export async function POST(req: Request) {
       title,
       content,
       images: imagePaths,
-      steps: null, // Временно null, обновим после обработки шагов
+      // steps будет добавлен позже, если есть
       isPublished,
       createdById: userId,
     },
