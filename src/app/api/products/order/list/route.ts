@@ -11,10 +11,10 @@ export async function GET() {
     // Используем прямой SQL запрос для обхода проблем с отсутствующими колонками
     let products: any[] = [];
     try {
-      // Проверяем, существует ли таблица ProductOrderInfo
+      // Проверяем, существует ли таблица ProductOrder
       const orderInfoTableExists = await prisma.$queryRaw`
         SELECT 1 FROM information_schema.tables 
-        WHERE table_name = 'ProductOrderInfo' 
+        WHERE table_name = 'ProductOrder' 
         LIMIT 1;
       ` as any[];
       
@@ -33,8 +33,8 @@ export async function GET() {
             oi."quantityPerBox"
           FROM "Product" p
           LEFT JOIN "Category" c ON c.id = p."categoryId"
-          LEFT JOIN "ProductOrderInfo" oi ON oi."productId" = p.id
-          WHERE p.stock <= 15
+          LEFT JOIN "ProductOrder" oi ON oi."productId" = p.id
+          WHERE p.stock < 10
             AND p."isHidden" = false
           ORDER BY p.stock ASC, p.name ASC
         ` as any[];
@@ -51,7 +51,7 @@ export async function GET() {
             c.name as "categoryName"
           FROM "Product" p
           LEFT JOIN "Category" c ON c.id = p."categoryId"
-          WHERE p.stock <= 15
+          WHERE p.stock < 10
             AND p."isHidden" = false
           ORDER BY p.stock ASC, p.name ASC
         ` as any[];

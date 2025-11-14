@@ -76,8 +76,15 @@ export default function ProductOrderPage() {
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Ошибка сохранения");
+        let errorMessage = "Ошибка сохранения";
+        try {
+          const error = await res.json();
+          errorMessage = error.error || error.message || errorMessage;
+        } catch (e) {
+          const errorText = await res.text();
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       showSuccess("Данные о заказе сохранены!");
@@ -132,7 +139,7 @@ export default function ProductOrderPage() {
       {/* Товары с остатком <= 15 */}
       <div className="card p-6">
         <h2 className="text-xl font-semibold text-white mb-4">
-          Товары для заказа (остаток ≤ 15 шт.)
+          Товары для заказа (остаток < 10 шт.)
         </h2>
         <p className="text-sm text-gray-400 mb-4">
           Укажите официальное наименование и количество в коробке для каждого товара. Товары отсортированы по остатку (сначала с наименьшим остатком).
@@ -325,7 +332,7 @@ export default function ProductOrderPage() {
 
         {(!products || products.length === 0) && (
           <div className="text-center py-8 text-gray-400">
-            Нет товаров с остатком меньше или равно 15 шт.
+            Нет товаров с остатком меньше 10 шт.
           </div>
         )}
       </div>
