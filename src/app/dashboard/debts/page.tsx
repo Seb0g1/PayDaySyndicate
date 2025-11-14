@@ -14,17 +14,21 @@ const fetcher = (u: string) => fetch(u).then((r) => r.json());
 
 export default function DebtsPage() {
   const NI = useNextIcons();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { showSuccess } = useSuccess();
   const role = ((session as any)?.user as any)?.role as string | undefined;
-  
-  // Предотвращаем рендеринг до загрузки сессии (для SSR)
-  if (typeof window === 'undefined') {
-    return null;
-  }
   const { data: me } = useSWR<any>("/api/me", fetcher);
   const myEmployeeId = me?.employeeId as string | undefined;
   const customRoleName = me?.customRole?.name as string | undefined;
+  
+  // Показываем загрузку пока сессия загружается
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-white">Загрузка...</div>
+      </div>
+    );
+  }
   
   // Проверяем права на основе системной роли и кастомной роли
   const isDirector = role === "DIRECTOR" || role === "OWNER";
