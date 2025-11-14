@@ -2,7 +2,7 @@
 import { format, startOfWeek, addDays, addWeeks, subWeeks, eachDayOfInterval, isSameDay } from "date-fns";
 import { ru } from "date-fns/locale";
 import useSWR from "swr";
-import { Fragment, useMemo, useState, useEffect, useCallback } from "react";
+import { Fragment, useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { useSession } from "next-auth/react";
 import { useNextIcons } from "@/components/NI";
@@ -975,12 +975,14 @@ function ReportViewModal({ isOpen, onClose, report, onEdit, onDelete }: { isOpen
     // Зум простым колесиком без Ctrl
     if (!e.ctrlKey) {
       e.preventDefault();
+      e.stopPropagation();
       const delta = e.deltaY * -0.01;
       setScale((prev) => Math.min(Math.max(1, prev + delta), 5));
     }
     // Зум с Ctrl (браузерный зум отключен)
     else {
       e.preventDefault();
+      e.stopPropagation();
       const delta = e.deltaY * -0.01;
       setScale((prev) => Math.min(Math.max(1, prev + delta), 5));
     }
@@ -1078,6 +1080,26 @@ function ReportViewModal({ isOpen, onClose, report, onEdit, onDelete }: { isOpen
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isOpen, selectedImageIndex, rotateImage]);
+
+  // Регистрация обработчика wheel с passive: false
+  useEffect(() => {
+    if (!isOpen || selectedImageIndex === null || !imageContainerRef.current) return;
+
+    const container = imageContainerRef.current;
+    
+    const handleWheelEvent = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY * -0.01;
+      setScale((prev) => Math.min(Math.max(1, prev + delta), 5));
+    };
+
+    container.addEventListener('wheel', handleWheelEvent, { passive: false });
+    
+    return () => {
+      container.removeEventListener('wheel', handleWheelEvent);
+    };
+  }, [isOpen, selectedImageIndex]);
 
   const renderReportData = () => {
     if (report.type === "FINANCIAL" && report.data) {
