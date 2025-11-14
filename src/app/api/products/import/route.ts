@@ -83,28 +83,41 @@ export async function POST(req: Request) {
     const IDX_CATEGORY = 8; // I (основная категория)
     const IDX_STOCK = 10;   // K (остаток)
 
-    // Функция для извлечения базового названия (убираем варианты в скобках)
+    // Функция для извлечения базового названия (убираем варианты в скобках и числовые суффиксы)
     function getBaseName(fullName: string): string {
+      let base = fullName.trim();
+      
       // Убираем все в скобках: "LitEnergy (Granat)" -> "LitEnergy"
-      let base = fullName.replace(/\([^)]*\)/g, '').trim();
+      base = base.replace(/\([^)]*\)/g, '').trim();
+      
+      // Убираем числовые суффиксы в конце (например, "0,25", "0.25", "0,5", "0.5")
+      // Паттерн: пробел + число с запятой или точкой + опциональные цифры
+      base = base.replace(/\s+0[,.]\d+(\s|$)/g, ' ').trim();
+      base = base.replace(/\s+\d+[,.]\d+(\s|$)/g, ' ').trim();
+      
       // Убираем лишние пробелы
       base = base.replace(/\s+/g, ' ').trim();
+      
       return base;
     }
 
     // Функция для определения подкатегории на основе базового названия и цены
     function getSubcategory(fullName: string, price: number, baseName: string): string {
-      // Если есть что-то в скобках или после базового названия - используем это как подкатегорию
-      const match = fullName.match(/\(([^)]+)\)/);
+      const fullNameTrimmed = fullName.trim();
+      
+      // Если есть что-то в скобках (например, "LitEnergy (Granat)")
+      const match = fullNameTrimmed.match(/\(([^)]+)\)/);
       if (match) {
         // Если есть вариант в скобках, используем базовое название как подкатегорию
+        // Все варианты с одинаковым базовым названием и ценой будут в одной подкатегории
         return baseName;
       }
       
       // Если название отличается от базового (например, "Adrenaline Rush 0,25" vs "Adrenaline Rush")
       // Используем полное название как подкатегорию
-      if (fullName.trim() !== baseName) {
-        return fullName.trim();
+      // Это означает, что товары с разными ценами будут в разных подкатегориях
+      if (fullNameTrimmed !== baseName) {
+        return fullNameTrimmed;
       }
       
       // Иначе используем базовое название
