@@ -83,6 +83,38 @@ export async function POST(req: Request) {
     const IDX_CATEGORY = 8; // I (основная категория)
     const IDX_STOCK = 10;   // K (остаток)
 
+    // Функция для извлечения базового названия (убираем варианты в скобках)
+    function getBaseName(fullName: string): string {
+      // Убираем все в скобках: "LitEnergy (Granat)" -> "LitEnergy"
+      let base = fullName.replace(/\([^)]*\)/g, '').trim();
+      // Убираем лишние пробелы
+      base = base.replace(/\s+/g, ' ').trim();
+      return base;
+    }
+
+    // Функция для определения подкатегории на основе базового названия и цены
+    function getSubcategory(fullName: string, price: number, baseName: string): string {
+      // Если есть что-то в скобках или после базового названия - используем это как подкатегорию
+      const match = fullName.match(/\(([^)]+)\)/);
+      if (match) {
+        // Если есть вариант в скобках, используем базовое название как подкатегорию
+        return baseName;
+      }
+      
+      // Если название отличается от базового (например, "Adrenaline Rush 0,25" vs "Adrenaline Rush")
+      // Используем полное название как подкатегорию
+      if (fullName.trim() !== baseName) {
+        return fullName.trim();
+      }
+      
+      // Иначе используем базовое название
+      return baseName;
+    }
+
+    // Map для группировки товаров по базовому названию + цене
+    // Ключ: baseName_price, Значение: подкатегория
+    const subcategoryMap = new Map<string, string>();
+
     for (const file of files) {
       try {
         console.log(`[API /products/import] Processing file: ${file.name}, size: ${file.size} bytes`);
@@ -162,11 +194,27 @@ export async function POST(req: Request) {
             const catNameRaw = (r[IDX_CATEGORY] || "").toString().trim();
             const stock = Math.max(0, Math.floor(parseNumber(r[IDX_STOCK]) ?? 0));
             
+            // Извлекаем базовое название
+            const baseName = getBaseName(name);
+            
+            // Определяем подкатегорию на основе базового названия и цены
+            const subcategoryKey = `${baseName}_${price}`;
+            let subcategory: string;
+            
+            if (subcategoryMap.has(subcategoryKey)) {
+              // Если уже есть товар с таким базовым названием и ценой - используем ту же подкатегорию
+              subcategory = subcategoryMap.get(subcategoryKey)!;
+            } else {
+              // Создаем новую подкатегорию
+              subcategory = getSubcategory(name, price, baseName);
+              subcategoryMap.set(subcategoryKey, subcategory);
+            }
+            
             if (i < 5) {
-              console.log(`[API /products/import] Row ${i} parsed: name="${name}", price=${price}, category="${catNameRaw}", stock=${stock}`);
+              console.log(`[API /products/import] Row ${i} parsed: name="${name}", baseName="${baseName}", price=${price}, subcategory="${subcategory}", category="${catNameRaw}", stock=${stock}`);
             }
 
-            // создаём/ищем основную категорию (только для новых товаров)
+            // создаём/ищем основную категорию
             let categoryId: string | undefined = undefined;
             if (catNameRaw) {
               try {
@@ -185,20 +233,29 @@ export async function POST(req: Request) {
             try {
               const existing = await prisma.product.findFirst({ where: { name } });
               if (existing) {
-                // Для существующих товаров обновляем остаток, дату импорта и категорию
+                // Для существующих товаров обновляем остаток, дату импорта, категорию и подкатегорию
                 await prisma.product.update({ 
                   where: { id: existing.id }, 
                   data: { 
                     stock, 
                     lastImportedAt: new Date(),
                     categoryId: categoryId || undefined, // Обновляем категорию, если указана в Excel
+                    category: subcategory, // Обновляем подкатегорию
+                    price: price > 0 ? price : undefined, // Обновляем цену, если она указана
                   } 
                 });
                 updated++;
                 processedRows++;
               } else {
                 await prisma.product.create({ 
-                  data: { name, price, stock, categoryId, lastImportedAt: new Date() } 
+                  data: { 
+                    name, 
+                    price, 
+                    stock, 
+                    categoryId, 
+                    category: subcategory, // Сохраняем подкатегорию
+                    lastImportedAt: new Date() 
+                  } 
                 });
                 created++;
                 processedRows++;
