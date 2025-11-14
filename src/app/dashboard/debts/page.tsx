@@ -17,6 +17,11 @@ export default function DebtsPage() {
   const { data: session } = useSession();
   const { showSuccess } = useSuccess();
   const role = ((session as any)?.user as any)?.role as string | undefined;
+  
+  // Предотвращаем рендеринг до загрузки сессии (для SSR)
+  if (typeof window === 'undefined') {
+    return null;
+  }
   const { data: me } = useSWR<any>("/api/me", fetcher);
   const myEmployeeId = me?.employeeId as string | undefined;
   const customRoleName = me?.customRole?.name as string | undefined;

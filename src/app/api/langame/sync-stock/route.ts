@@ -39,9 +39,9 @@ export async function POST() {
     // Создаем карту остатков по langameId
     const stockMap = new Map<number, number>();
     for (const good of goodsData) {
-      if (good.product_id && good.quantity !== undefined && good.quantity !== null) {
-        const productId = Number(good.product_id);
-        const quantity = Number(good.quantity);
+      if (good.id && good.count !== undefined && good.count !== null) {
+        const productId = Number(good.id);
+        const quantity = Number(good.count);
         if (!isNaN(productId) && !isNaN(quantity)) {
           // Суммируем остатки по всем складам для одного товара
           const currentStock = stockMap.get(productId) || 0;

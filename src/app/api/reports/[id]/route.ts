@@ -111,7 +111,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const filesAdded = parsed.data.files && parsed.data.files.length > 0 && 
     (!oldReport.files || oldReport.files.length === 0 || parsed.data.files.length > oldReport.files.length);
   
-  if (filesAdded) {
+  if (filesAdded && parsed.data.files) {
     try {
       const settings = await prisma.telegramSettings.findFirst();
       if (settings?.enabled && settings?.botToken) {
