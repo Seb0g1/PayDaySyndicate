@@ -102,12 +102,8 @@ export default function ShiftsPage() {
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
 
   const openModal = (day: Date, empId?: string) => {
-    // Если передан empId, используем его, иначе используем выбранного сотрудника
-    const targetEmployeeId = empId || employeeId;
-    if (!targetEmployeeId) {
-      showError("Сначала выберите сотрудника");
-      return;
-    }
+    // Если передан empId, используем его, иначе используем выбранного сотрудника или пустую строку
+    const targetEmployeeId = empId || employeeId || "";
     setSelectedDay(day);
     setSelectedEmployeeId(targetEmployeeId);
     setOpen(true);
