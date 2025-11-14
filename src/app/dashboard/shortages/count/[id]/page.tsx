@@ -294,6 +294,71 @@ export default function CountDetailPage({ params }: { params: Promise<{ id: stri
     }
   }, [currentCount]);
 
+  // Автоматическая синхронизация остатков с Langame в реальном времени
+  useEffect(() => {
+    // Синхронизируем только если пересчет в статусе DRAFT (активный)
+    if (!id || !currentCount || currentCount.status !== "DRAFT") {
+      return;
+    }
+
+    console.log("[CountPage] Starting automatic stock sync");
+    
+    // Функция синхронизации остатков
+    const syncStock = async () => {
+      try {
+        const res = await fetch("/api/langame/sync-stock", {
+          method: "POST",
+        });
+        
+        if (res.ok) {
+          const result = await res.json();
+          console.log("[CountPage] Stock sync completed:", result);
+          
+          // Если были обновлены остатки, обновляем данные пересчета
+          if (result.updatedCounts > 0) {
+            // Перезагружаем данные пересчета
+            mutateCounts();
+            // Обновляем список товаров
+            if (products) {
+              // Перезагружаем товары через SWR
+              const productsRes = await fetch("/api/products");
+              if (productsRes.ok) {
+                const updatedProducts = await productsRes.json();
+                // Обновляем counts с новыми остатками
+                setCounts((prev) => {
+                  const updated = { ...prev };
+                  for (const product of updatedProducts) {
+                    if (updated[product.id]) {
+                      updated[product.id] = {
+                        ...updated[product.id],
+                        system: String(product.stock ?? 0),
+                      };
+                    }
+                  }
+                  return updated;
+                });
+              }
+            }
+          }
+        } else {
+          console.error("[CountPage] Stock sync failed:", res.status);
+        }
+      } catch (error) {
+        console.error("[CountPage] Stock sync error:", error);
+      }
+    };
+
+    // Первая синхронизация сразу
+    syncStock();
+
+    // Затем синхронизируем каждые 30 секунд
+    const interval = setInterval(syncStock, 30000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [id, currentCount, mutateCounts, products]);
+
   if (!id || !currentCount) {
     return <div className="card p-4 text-white">Загрузка...</div>;
   }

@@ -98,21 +98,129 @@ export async function POST(req: Request) {
   try {
     const settings = await prisma.telegramSettings.findFirst();
     if (settings?.enabled && settings?.botToken) {
-      const reportTypeLabels: Record<string, string> = {
-        FINANCIAL: "Финансовый отчет",
-        HOOKAH: "Отчет о кальянах",
-        TABLE_STATUS: "Отчет о состоянии столов",
-        PROMOTION: "Учет акций",
-        PLAYSTATION: "Учет PlayStation",
-        VAT_INVOICE: "Накладная",
-        CORK_FEE: "Отчет о пробковом сборе",
-      };
-      
       const topicId = getTopicIdForReportType(type, settings);
+      const reportData = data as any || {};
       
-      // НЕ отправляем уведомления при создании отчёта, т.к. файлы ещё не загружены
-      // Уведомления отправится при загрузке файлов в PATCH /api/reports/[id]
-      // Это предотвращает дублирование сообщений
+      // Формируем пути к фотографиям (если файлы уже есть)
+      const photoUrls = files && files.length > 0 
+        ? files.map((file: string) => `/uploads/${created.id}/${file}`)
+        : [];
+      
+      // Отправляем уведомление только если есть файлы или это важный тип отчета
+      // Если файлов нет, уведомление отправится при их загрузке в PATCH
+      const shouldNotifyNow = files && files.length > 0;
+      
+      if (shouldNotifyNow) {
+        if (type === "FINANCIAL") {
+          const nalLangame = reportData.nalLangame;
+          const nalFact = reportData.nalFact;
+          const discrepancy = reportData.discrepancy;
+          const shiftPhase = reportData.shiftPhase;
+          const shiftDate = created.shift?.date ? new Date(created.shift.date) : undefined;
+          
+          await notifyFinancialReport({
+            botToken: settings.botToken,
+            chatId: settings.chatId || undefined,
+            adminName: userName,
+            telegramTag: created.employee?.telegramTag || undefined,
+            shiftDate,
+            shiftPhase,
+            nalLangame,
+            nalFact,
+            discrepancy,
+            topicId,
+            photoUrls,
+          });
+        } else if (type === "CORK_FEE") {
+          const amountValue = amount || reportData.amount;
+          const category = reportData.category;
+          const pcNumber = reportData.pc;
+          
+          await notifyCorkFeeReport({
+            botToken: settings.botToken,
+            chatId: settings.chatId || undefined,
+            adminName: userName,
+            topicId,
+            amount: amountValue,
+            category,
+            pcNumber,
+            telegramTag: created.employee?.telegramTag || undefined,
+            photoUrls,
+          });
+        } else if (type === "HOOKAH") {
+          const shiftDate = created.shift?.date ? new Date(created.shift.date) : undefined;
+          
+          await notifyHookahReport({
+            botToken: settings.botToken,
+            chatId: settings.chatId || undefined,
+            adminName: userName,
+            telegramTag: created.employee?.telegramTag || undefined,
+            shiftDate,
+            topicId,
+            photoUrls,
+          });
+        } else if (type === "TABLE_STATUS") {
+          const shiftDate = created.shift?.date ? new Date(created.shift.date) : undefined;
+          const photoCategories = reportData.photoCategories || {};
+          
+          const photoCategoriesWithPaths: Record<string, string[]> = {};
+          for (const [cat, files] of Object.entries(photoCategories)) {
+            if (Array.isArray(files)) {
+              photoCategoriesWithPaths[cat] = files.map((file: string) => {
+                return `/uploads/${created.id}/${file}`;
+              });
+            }
+          }
+          
+          await notifyTableStatusReport({
+            botToken: settings.botToken,
+            chatId: settings.chatId || undefined,
+            adminName: userName,
+            telegramTag: created.employee?.telegramTag || undefined,
+            shiftDate,
+            topicId,
+            photoCategories: photoCategoriesWithPaths,
+          });
+        } else if (type === "PROMOTION") {
+          await notifyPromotionReport({
+            botToken: settings.botToken,
+            chatId: settings.chatId || undefined,
+            adminName: userName,
+            telegramTag: created.employee?.telegramTag || undefined,
+            reportDate: reportData.date,
+            phone: reportData.phone,
+            clientName: reportData.clientName,
+            promoType: reportData.promoType,
+            topicId,
+            photoUrls,
+          });
+        } else if (type === "PLAYSTATION") {
+          const shiftDate = created.shift?.date ? new Date(created.shift.date) : undefined;
+          
+          await notifyPlayStationReport({
+            botToken: settings.botToken,
+            chatId: settings.chatId || undefined,
+            adminName: userName,
+            telegramTag: created.employee?.telegramTag || undefined,
+            shiftDate,
+            time: reportData.time,
+            topicId,
+            photoUrls,
+          });
+        } else if (type === "VAT_INVOICE") {
+          await notifyVatInvoiceReport({
+            botToken: settings.botToken,
+            chatId: settings.chatId || undefined,
+            adminName: userName,
+            telegramTag: created.employee?.telegramTag || undefined,
+            invoiceDate: reportData.date,
+            month: reportData.month,
+            description: reportData.description,
+            topicId,
+            photoUrls,
+          });
+        }
+      }
     }
   } catch (error) {
     console.error("Failed to send Telegram notification:", error);

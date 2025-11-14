@@ -107,8 +107,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   }
 
   // Если файлы были добавлены, отправляем уведомление в Telegram
-  // Проверяем, что файлы действительно были добавлены (не было файлов раньше)
-  if (parsed.data.files && parsed.data.files.length > 0 && (!oldReport.files || oldReport.files.length === 0)) {
+  // Проверяем, что файлы действительно были добавлены (не было файлов раньше или файлов стало больше)
+  const filesAdded = parsed.data.files && parsed.data.files.length > 0 && 
+    (!oldReport.files || oldReport.files.length === 0 || parsed.data.files.length > oldReport.files.length);
+  
+  if (filesAdded) {
     try {
       const settings = await prisma.telegramSettings.findFirst();
       if (settings?.enabled && settings?.botToken) {

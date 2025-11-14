@@ -98,6 +98,45 @@ export default function ProductsPage() {
     return () => window.removeEventListener('paste', handlePaste);
   }, []);
 
+  // Автоматическая синхронизация остатков с Langame в реальном времени
+  useEffect(() => {
+    console.log("[ProductsPage] Starting automatic stock sync");
+    
+    // Функция синхронизации остатков
+    const syncStock = async () => {
+      try {
+        const res = await fetch("/api/langame/sync-stock", {
+          method: "POST",
+        });
+        
+        if (res.ok) {
+          const result = await res.json();
+          console.log("[ProductsPage] Stock sync completed:", result);
+          
+          // Если были обновлены остатки, обновляем список товаров
+          if (result.updated > 0) {
+            mutate();
+          }
+        } else {
+          console.error("[ProductsPage] Stock sync failed:", res.status);
+        }
+      } catch (error) {
+        console.error("[ProductsPage] Stock sync error:", error);
+      }
+    };
+
+    // Первая синхронизация через 5 секунд после загрузки страницы
+    const initialTimeout = setTimeout(syncStock, 5000);
+
+    // Затем синхронизируем каждые 30 секунд
+    const interval = setInterval(syncStock, 30000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, [mutate]);
+
   const importXlsx = async () => {
     if (!files.length) return;
     
