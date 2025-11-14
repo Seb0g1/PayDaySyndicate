@@ -142,7 +142,7 @@ export default function ProductOrderPage() {
           Товары для заказа (остаток &lt; 10 шт.)
         </h2>
         <p className="text-sm text-gray-400 mb-4">
-          Укажите официальное наименование и количество в коробке для каждого товара. Товары отсортированы по остатку (сначала с наименьшим остатком).
+          Укажите официальное наименование и сколько упаковок для каждого товара. Товары отсортированы по остатку (сначала с наименьшим остатком).
         </p>
 
         <div className="overflow-x-auto">
@@ -154,7 +154,7 @@ export default function ProductOrderPage() {
                 <th className="p-3 text-white font-semibold">Подкатегория</th>
                 <th className="p-3 text-white font-semibold">Остаток</th>
                 <th className="p-3 text-white font-semibold">Официальное название</th>
-                <th className="p-3 text-white font-semibold">Кол-во в коробке</th>
+                <th className="p-3 text-white font-semibold">Сколько упаковок</th>
                 <th className="p-3 text-white font-semibold"></th>
               </tr>
             </thead>
@@ -192,7 +192,7 @@ export default function ProductOrderPage() {
                           type="number"
                           value={quantityPerBox}
                           onChange={(e) => setQuantityPerBox(e.target.value)}
-                          placeholder="Кол-во в коробке"
+                          placeholder="Сколько упаковок"
                           min="1"
                           className="w-full border rounded px-2 py-1 bg-gray-900 text-white border-gray-700"
                         />
@@ -275,13 +275,13 @@ export default function ProductOrderPage() {
                         </div>
                         <div>
                           <label className="block text-xs text-gray-400 mb-1">
-                            Количество в коробке
+                            Сколько упаковок
                           </label>
                           <input
                             type="number"
                             value={quantityPerBox}
                             onChange={(e) => setQuantityPerBox(e.target.value)}
-                            placeholder="Кол-во в коробке"
+                            placeholder="Сколько упаковок"
                             min="1"
                             className="w-full border rounded px-2 py-1 bg-gray-900 text-white border-gray-700"
                           />
@@ -310,7 +310,7 @@ export default function ProductOrderPage() {
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-400 mb-1">Количество в коробке:</div>
+                          <div className="text-xs text-gray-400 mb-1">Сколько упаковок:</div>
                           <div className="text-sm text-gray-300">
                             {product.orderInfo?.quantityPerBox || "—"}
                           </div>
