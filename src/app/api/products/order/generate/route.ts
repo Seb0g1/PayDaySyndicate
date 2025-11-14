@@ -85,26 +85,21 @@ export async function GET() {
     }
 
     // Формируем список товаров для заказа
-    // Для товаров с остатком <= 15 заказываем минимум 1 уп.
+    // quantityPerBox теперь означает "сколько упаковок заказать" (введенное пользователем значение)
     const orderList = (filteredProducts || [])
       .filter((p: any) => p.officialName && p.quantityPerBox)
       .map((p: any) => {
-        const needed = 20; // Минимальный остаток для заказа (можно настроить)
         const currentStock = Number(p.stock) || 0;
-        const shortage = Math.max(0, needed - currentStock);
-        const quantityPerBox = Number(p.quantityPerBox) || 1;
-        // Если остаток меньше нужного, заказываем минимум 1 уп.
-        // Если остаток уже больше нужного, не заказываем
-        const boxes = currentStock >= needed ? 0 : Math.max(1, Math.ceil(shortage / quantityPerBox));
+        const boxes = Number(p.quantityPerBox) || 0; // Используем значение, введенное пользователем
         
         return {
           productId: p.id,
           productName: p.name,
           officialName: p.officialName,
-          quantityPerBox: quantityPerBox,
+          quantityPerBox: boxes, // Количество упаковок для заказа
           currentStock: currentStock,
-          needed: needed,
-          shortage: shortage,
+          needed: 0, // Не используется больше
+          shortage: 0, // Не используется больше
           boxes: boxes,
           orderText: `${p.officialName} — ${boxes} уп.`,
         };
