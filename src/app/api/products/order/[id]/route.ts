@@ -146,10 +146,46 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         }
       } else {
         // Если записи нет, создаем новую
-        orderInfo = await prisma.productOrder.create({
-          data: createData,
-        });
-        console.log("[API /products/order/[id]] Order info created successfully");
+        try {
+          orderInfo = await prisma.productOrder.create({
+            data: createData,
+          });
+          console.log("[API /products/order/[id]] Order info created successfully");
+        } catch (createError: any) {
+          // Если таблица не существует, создаем её
+          if (createError.code === 'P2021' || createError.message?.includes('does not exist')) {
+            console.log("[API /products/order/[id]] ProductOrder table does not exist, creating it...");
+            try {
+              await prisma.$executeRawUnsafe(`
+                CREATE TABLE IF NOT EXISTS "ProductOrder" (
+                  "id" TEXT NOT NULL,
+                  "productId" TEXT NOT NULL,
+                  "officialName" TEXT,
+                  "quantityPerBox" INTEGER,
+                  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  "updatedAt" TIMESTAMP(3) NOT NULL,
+                  CONSTRAINT "ProductOrder_pkey" PRIMARY KEY ("id"),
+                  CONSTRAINT "ProductOrder_productId_key" UNIQUE ("productId")
+                );
+              `);
+              await prisma.$executeRawUnsafe(`
+                CREATE INDEX IF NOT EXISTS "ProductOrder_productId_idx" ON "ProductOrder"("productId");
+              `);
+              console.log("[API /products/order/[id]] ProductOrder table created successfully");
+              
+              // Пытаемся создать запись снова
+              orderInfo = await prisma.productOrder.create({
+                data: createData,
+              });
+              console.log("[API /products/order/[id]] Order info created after table creation");
+            } catch (tableError: any) {
+              console.error("[API /products/order/[id]] Error creating table:", tableError);
+              throw createError; // Выбрасываем оригинальную ошибку
+            }
+          } else {
+            throw createError;
+          }
+        }
       }
     } catch (upsertError: any) {
       console.error("[API /products/order/[id]] Error upserting order info:", upsertError);

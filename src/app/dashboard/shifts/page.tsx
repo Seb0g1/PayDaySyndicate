@@ -96,16 +96,20 @@ export default function ShiftsPage() {
 
   const [open, setOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [form, setForm] = useState<{ type: "MORNING" | "NIGHT" | "CUSTOM"; start: string; end: string }>({ type: "MORNING", start: "09:00", end: "21:00" });
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
 
-  const openModal = (day: Date) => {
-    if (!employeeId) {
+  const openModal = (day: Date, empId?: string) => {
+    // Если передан empId, используем его, иначе используем выбранного сотрудника
+    const targetEmployeeId = empId || employeeId;
+    if (!targetEmployeeId) {
       showError("Сначала выберите сотрудника");
       return;
     }
     setSelectedDay(day);
+    setSelectedEmployeeId(targetEmployeeId);
     setOpen(true);
   };
 
@@ -116,7 +120,7 @@ export default function ShiftsPage() {
   };
 
   const createShift = async () => {
-    if (!selectedDay || !employeeId) return;
+    if (!selectedDay || !selectedEmployeeId) return;
     const dateLocal = format(selectedDay, "yyyy-MM-dd");
     const startISO = new Date(`${dateLocal}T${form.start}:00`).toISOString();
     let endDate = new Date(`${dateLocal}T${form.end}:00`);
@@ -128,7 +132,7 @@ export default function ShiftsPage() {
     const res = await fetch("/api/shifts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId, date: startISO, startTime: startISO, endTime: endISO, type: form.type }),
+      body: JSON.stringify({ employeeId: selectedEmployeeId, date: startISO, startTime: startISO, endTime: endISO, type: form.type }),
     });
     if (!res.ok) {
       showError("Недостаточно прав для создания смены");
@@ -137,6 +141,7 @@ export default function ShiftsPage() {
     showSuccess("Смена добавлена!");
     setOpen(false);
     setSelectedDay(null);
+    setSelectedEmployeeId("");
     mutate();
   };
 
@@ -240,10 +245,7 @@ export default function ShiftsPage() {
                     >
                       {isDirector && (
                         <button
-                          onClick={() => {
-                            setEmployeeId(employee.id);
-                            openModal(day);
-                          }}
+                          onClick={() => openModal(day, employee.id)}
                           className="w-full h-6 text-xs text-gray-400 hover:text-white hover:bg-gray-700 rounded mb-1"
                           title="Добавить смену"
                         >
@@ -306,6 +308,19 @@ export default function ShiftsPage() {
                     Добавить смену на {selectedDay && format(selectedDay, "d MMMM yyyy", { locale: ru })}
                   </Dialog.Title>
                   <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <label className="block text-xs mb-1" style={{ color: "rgba(255, 255, 255, 0.7)" }}>Сотрудник</label>
+                      <select
+                        value={selectedEmployeeId}
+                        onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                        className="border rounded px-2 py-2 w-full bg-gray-900 text-white"
+                      >
+                        <option value="">Выберите сотрудника</option>
+                        {(employees ?? []).map((e) => (
+                          <option key={e.id} value={e.id}>{e.name}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div className="col-span-2">
                       <label className="block text-xs mb-1" style={{ color: "rgba(255, 255, 255, 0.7)" }}>Тип</label>
                       <select
