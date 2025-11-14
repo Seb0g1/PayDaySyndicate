@@ -99,11 +99,39 @@ export async function POST(req: Request) {
   }
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) return new NextResponse("Product not found", { status: 404 });
-  const amount = product.price.mul(quantity);
-  const created = await prisma.debt.create({ 
-    data: { employeeId, productId, quantity, date: new Date(date), amount },
+  
+  // Проверяем, существует ли уже долг для этого сотрудника и товара
+  // Объединяем все долги по товару и сотруднику, независимо от даты
+  const existingDebt = await prisma.debt.findFirst({
+    where: {
+      employeeId,
+      productId,
+    },
     include: { employee: { select: { id: true, name: true, telegramTag: true } } },
   });
+  
+  let created;
+  if (existingDebt) {
+    // Если долг уже существует, увеличиваем количество
+    const newQuantity = existingDebt.quantity + quantity;
+    const newAmount = product.price.mul(newQuantity);
+    created = await prisma.debt.update({
+      where: { id: existingDebt.id },
+      data: {
+        quantity: newQuantity,
+        amount: newAmount,
+        date: new Date(date), // Обновляем дату на последнюю
+      },
+      include: { employee: { select: { id: true, name: true, telegramTag: true } } },
+    });
+  } else {
+    // Если долга нет, создаем новую запись
+    const amount = product.price.mul(quantity);
+    created = await prisma.debt.create({ 
+      data: { employeeId, productId, quantity, date: new Date(date), amount },
+      include: { employee: { select: { id: true, name: true, telegramTag: true } } },
+    });
+  }
   
   // Отправляем уведомление в Telegram
   try {
