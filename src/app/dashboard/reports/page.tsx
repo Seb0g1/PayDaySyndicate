@@ -960,6 +960,7 @@ function ReportViewModal({ isOpen, onClose, report, onEdit, onDelete }: { isOpen
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastTouchDistance, setLastTouchDistance] = useState(0);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("ru-RU", {
@@ -1375,8 +1376,8 @@ function ReportViewModal({ isOpen, onClose, report, onEdit, onDelete }: { isOpen
 
           {report.files.filter(f => isImage(f)).length > 0 && (
             <div 
+              ref={imageContainerRef}
               className="flex items-center justify-center min-h-screen p-4 pointer-events-auto" 
-              onWheel={handleWheel}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
