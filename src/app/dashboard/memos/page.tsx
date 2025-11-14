@@ -8,11 +8,17 @@ import Image from "next/image";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+type MemoStep = {
+  description: string;
+  image: string | null;
+};
+
 type Memo = {
   id: string;
   title: string;
   content: string;
   images: string[];
+  steps: MemoStep[] | null;
   isPublished: boolean;
   createdAt: string;
   updatedAt: string;
@@ -46,6 +52,7 @@ export default function MemosPage() {
   const [isPublished, setIsPublished] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [steps, setSteps] = useState<Array<{ description: string; image: string | null; imageFile?: File | null; preview?: string }>>([]);
 
   const resetForm = () => {
     setTitle("");
@@ -55,6 +62,7 @@ export default function MemosPage() {
     setPreviewImages([]);
     setIsPublished(true);
     setSelectedMemo(null);
+    setSteps([]);
   };
 
   // Создаем превью для новых изображений
@@ -89,6 +97,22 @@ export default function MemosPage() {
       formData.append("content", content);
       formData.append("isPublished", String(isPublished));
       images.forEach((img) => formData.append("images", img));
+
+      // Добавляем шаги
+      if (steps.length > 0) {
+        const stepsData = steps.map((step) => ({
+          description: step.description,
+          image: step.image || null,
+        }));
+        formData.append("steps", JSON.stringify(stepsData));
+        
+        // Добавляем файлы изображений для шагов
+        steps.forEach((step, index) => {
+          if (step.imageFile) {
+            formData.append(`step_${index}_image`, step.imageFile);
+          }
+        });
+      }
 
       const res = await fetch("/api/memos", {
         method: "POST",
@@ -125,6 +149,22 @@ export default function MemosPage() {
       formData.append("isPublished", String(isPublished));
       formData.append("existingImages", JSON.stringify(existingImages));
       images.forEach((img) => formData.append("images", img));
+
+      // Добавляем шаги
+      if (steps.length > 0) {
+        const stepsData = steps.map((step) => ({
+          description: step.description,
+          image: step.image || null,
+        }));
+        formData.append("steps", JSON.stringify(stepsData));
+        
+        // Добавляем файлы изображений для шагов
+        steps.forEach((step, index) => {
+          if (step.imageFile) {
+            formData.append(`step_${index}_image`, step.imageFile);
+          }
+        });
+      }
 
       const res = await fetch(`/api/memos/${selectedMemo.id}`, {
         method: "PATCH",
@@ -169,6 +209,17 @@ export default function MemosPage() {
     setImages([]);
     setPreviewImages([]);
     setIsPublished(memo.isPublished);
+    // Загружаем шаги из памятки
+    if (memo.steps && Array.isArray(memo.steps)) {
+      setSteps(memo.steps.map((step) => ({
+        description: step.description || "",
+        image: step.image,
+        imageFile: null,
+        preview: step.image || undefined,
+      })));
+    } else {
+      setSteps([]);
+    }
     setShowModal(true);
   };
 
@@ -179,6 +230,35 @@ export default function MemosPage() {
   const removeNewImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
     setPreviewImages(previewImages.filter((_, i) => i !== index));
+  };
+
+  const addStep = () => {
+    setSteps([...steps, { description: "", image: null, imageFile: null }]);
+  };
+
+  const removeStep = (index: number) => {
+    setSteps(steps.filter((_, i) => i !== index));
+  };
+
+  const updateStep = (index: number, field: "description" | "imageFile", value: string | File | null) => {
+    const updatedSteps = [...steps];
+    if (field === "description") {
+      updatedSteps[index] = { ...updatedSteps[index], description: value as string };
+    } else if (field === "imageFile") {
+      const file = value as File | null;
+      updatedSteps[index] = { ...updatedSteps[index], imageFile: file || null };
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          updatedSteps[index] = { ...updatedSteps[index], preview: reader.result as string };
+          setSteps([...updatedSteps]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        updatedSteps[index] = { ...updatedSteps[index], preview: undefined };
+      }
+    }
+    setSteps(updatedSteps);
   };
 
   return (
@@ -248,7 +328,40 @@ export default function MemosPage() {
                 dangerouslySetInnerHTML={{ __html: memo.content }}
               />
               
-              {memo.images.length > 0 && (
+              {/* Отображение шагов */}
+              {memo.steps && Array.isArray(memo.steps) && memo.steps.length > 0 && (
+                <div className="space-y-4 mt-4 mb-4">
+                  {memo.steps.map((step, idx) => (
+                    <div key={idx} className="p-3 bg-gray-900/30 rounded-lg border border-gray-700/50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-semibold text-red-400 bg-red-500/20 px-2 py-0.5 rounded">Шаг {idx + 1}</span>
+                      </div>
+                      {step.description && (
+                        <p className="text-sm text-gray-300 mb-2">{step.description}</p>
+                      )}
+                      {step.image && (
+                        <div className="relative group">
+                          <img
+                            src={step.image}
+                            alt={`Шаг ${idx + 1}`}
+                            className="w-full h-48 object-cover rounded-lg border border-red-500/30 hover:border-red-500/60 transition-all cursor-pointer"
+                            onClick={() => window.open(step.image || '', '_blank')}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=`;
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                            <span className="text-white text-xs">Нажмите для просмотра</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Старые изображения (для обратной совместимости) */}
+              {(!memo.steps || !Array.isArray(memo.steps) || memo.steps.length === 0) && memo.images.length > 0 && (
                 <div className="grid grid-cols-2 gap-2 mt-4 mb-4">
                   {memo.images.map((img, idx) => (
                     <div key={idx} className="relative group">
@@ -351,10 +464,80 @@ export default function MemosPage() {
                 </div>
               </div>
 
+              {/* Шаги с фотографиями */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-white flex items-center gap-2">
+                    {NI && <NI.List className="w-4 h-4" />}
+                    Шаги (описание + фотография)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addStep}
+                    className="px-3 py-1.5 text-sm rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 hover:border-red-500/50 transition-all flex items-center gap-2"
+                  >
+                    {NI && <NI.Plus className="w-4 h-4" />}
+                    Добавить шаг
+                  </button>
+                </div>
+                
+                {steps.length > 0 && (
+                  <div className="space-y-4">
+                    {steps.map((step, index) => (
+                      <div key={index} className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-300">Шаг {index + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeStep(index)}
+                            className="text-red-400 hover:text-red-500 transition-colors"
+                          >
+                            {NI && <NI.Trash className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label className="block text-xs text-gray-400">Описание шага</label>
+                          <textarea
+                            value={step.description}
+                            onChange={(e) => updateStep(index, "description", e.target.value)}
+                            rows={2}
+                            className="w-full border border-gray-700 rounded-lg px-3 py-2 bg-gray-800/50 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all text-sm resize-none"
+                            placeholder="Опишите этот шаг..."
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label className="block text-xs text-gray-400">Фотография</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => updateStep(index, "imageFile", e.target.files?.[0] || null)}
+                            className="w-full border border-gray-700 rounded-lg px-3 py-2 bg-gray-800/50 text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-red-500 file:text-white hover:file:bg-red-600 file:cursor-pointer"
+                          />
+                          {(step.preview || step.image) && (
+                            <div className="relative group mt-2">
+                              <img
+                                src={step.preview || step.image || ""}
+                                alt={`Шаг ${index + 1}`}
+                                className="w-full h-40 object-cover rounded-lg border border-red-500/30"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=`;
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-white flex items-center gap-2">
                   {NI && <NI.Upload className="w-4 h-4" />}
-                  Изображения
+                  Изображения (устаревшее, используйте шаги)
                 </label>
                 <input
                   type="file"

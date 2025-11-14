@@ -568,7 +568,8 @@ model Memo {
   id            String   @id @default(cuid())
   title         String
   content       String   // HTML контент с оформлением
-  images        String[] // Массив путей к изображениям
+  images        String[] // Массив путей к изображениям (deprecated, используйте steps)
+  steps         Json?    // Массив шагов: [{ description: string, image: string }]
   createdById   String   // ID пользователя (Director), который создал памятку
   isPublished   Boolean  @default(true) // Опубликована ли памятка
   createdAt     DateTime @default(now())

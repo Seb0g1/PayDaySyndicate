@@ -49,13 +49,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const content = formData.get("content") as string | null;
   const isPublished = formData.get("isPublished") as string | null;
   const existingImages = formData.get("existingImages") as string | null;
+  const stepsJson = formData.get("steps") as string | null;
 
   const updateData: any = {};
   if (title !== null) updateData.title = title;
   if (content !== null) updateData.content = content;
   if (isPublished !== null) updateData.isPublished = isPublished === "true";
 
-  // Обработка изображений
+  // Обработка изображений (для обратной совместимости)
   const files = formData.getAll("images") as File[];
   let imagePaths: string[] = existingImages ? JSON.parse(existingImages) : [];
 
@@ -77,6 +78,59 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   updateData.images = imagePaths;
+
+  // Обработка шагов
+  if (stepsJson !== null) {
+    try {
+      const parsedSteps = JSON.parse(stepsJson);
+      const memoId = id;
+      const uploadDir = join(process.cwd(), "public", "uploads", "memos", memoId);
+      await mkdir(uploadDir, { recursive: true });
+
+      // Получаем все файлы для шагов
+      const stepFiles = new Map<number, File>();
+      for (const [key, value] of formData.entries()) {
+        if (key.startsWith("step_") && key.endsWith("_image") && value instanceof File) {
+          const stepIndex = parseInt(key.replace("step_", "").replace("_image", ""));
+          if (!isNaN(stepIndex)) {
+            stepFiles.set(stepIndex, value);
+          }
+        }
+      }
+
+      // Обрабатываем каждый шаг
+      const processedSteps = await Promise.all(
+        parsedSteps.map(async (step: any, index: number) => {
+          const stepFile = stepFiles.get(index);
+          if (stepFile && stepFile.size > 0) {
+            // Если есть новый файл изображения
+            const bytes = await stepFile.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            const fileName = `step_${index}_${Date.now()}_${stepFile.name}`;
+            const filePath = join(uploadDir, fileName);
+            await writeFile(filePath, buffer);
+            return {
+              description: step.description || "",
+              image: `/uploads/memos/${memoId}/${fileName}`,
+            };
+          } else if (step.image) {
+            // Если изображение уже существует
+            return {
+              description: step.description || "",
+              image: step.image,
+            };
+          }
+          return {
+            description: step.description || "",
+            image: null,
+          };
+        })
+      );
+      updateData.steps = processedSteps;
+    } catch (error) {
+      console.error("Error parsing steps:", error);
+    }
+  }
 
   const updated = await prisma.memo.update({
     where: { id },

@@ -47,6 +47,7 @@ export async function POST(req: Request) {
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
   const isPublished = formData.get("isPublished") === "true";
+  const stepsJson = formData.get("steps") as string | null;
 
   if (!title || !content) {
     return NextResponse.json({ error: "Title and content are required" }, { status: 400 });
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
   const files = formData.getAll("images") as File[];
   const imagePaths: string[] = [];
 
-  // Сохраняем изображения
+  // Сохраняем изображения (для обратной совместимости)
   if (files.length > 0) {
     const memoId = `memo_${Date.now()}`;
     const uploadDir = join(process.cwd(), "public", "uploads", "memos", memoId);
@@ -73,11 +74,13 @@ export async function POST(req: Request) {
     }
   }
 
+  // Создаем памятку сначала, чтобы получить ID
   const memo = await prisma.memo.create({
     data: {
       title,
       content,
       images: imagePaths,
+      steps: null, // Временно null, обновим после обработки шагов
       isPublished,
       createdById: userId,
     },
@@ -85,6 +88,69 @@ export async function POST(req: Request) {
       createdBy: { select: { id: true, name: true } },
     },
   });
+
+  // Обработка шагов (после создания памятки, чтобы использовать правильный ID)
+  let steps: any = null;
+  if (stepsJson) {
+    try {
+      const parsedSteps = JSON.parse(stepsJson);
+      const memoId = memo.id;
+      const uploadDir = join(process.cwd(), "public", "uploads", "memos", memoId);
+      await mkdir(uploadDir, { recursive: true });
+
+      // Получаем все файлы для шагов
+      const stepFiles = new Map<number, File>();
+      for (const [key, value] of formData.entries()) {
+        if (key.startsWith("step_") && key.endsWith("_image") && value instanceof File) {
+          const stepIndex = parseInt(key.replace("step_", "").replace("_image", ""));
+          if (!isNaN(stepIndex)) {
+            stepFiles.set(stepIndex, value);
+          }
+        }
+      }
+
+      // Обрабатываем каждый шаг
+      const processedSteps = await Promise.all(
+        parsedSteps.map(async (step: any, index: number) => {
+          const stepFile = stepFiles.get(index);
+          if (stepFile && stepFile.size > 0) {
+            // Если есть новый файл изображения
+            const bytes = await stepFile.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            const fileName = `step_${index}_${Date.now()}_${stepFile.name}`;
+            const filePath = join(uploadDir, fileName);
+            await writeFile(filePath, buffer);
+            return {
+              description: step.description || "",
+              image: `/uploads/memos/${memoId}/${fileName}`,
+            };
+          } else if (step.image) {
+            // Если изображение уже существует (при редактировании)
+            return {
+              description: step.description || "",
+              image: step.image,
+            };
+          }
+          return {
+            description: step.description || "",
+            image: null,
+          };
+        })
+      );
+      steps = processedSteps;
+
+      // Обновляем памятку с шагами
+      if (steps.length > 0) {
+        await prisma.memo.update({
+          where: { id: memo.id },
+          data: { steps },
+        });
+        memo.steps = steps;
+      }
+    } catch (error) {
+      console.error("Error parsing steps:", error);
+    }
+  }
 
   return NextResponse.json(memo, { status: 201 });
 }

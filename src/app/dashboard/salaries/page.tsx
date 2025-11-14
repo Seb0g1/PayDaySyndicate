@@ -1,6 +1,7 @@
 "use client";
 import useSWR from "swr";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNextIcons } from "@/components/NI";
 import { useSession } from "next-auth/react";
 import { useSuccess } from "@/components/SuccessProvider";
@@ -586,6 +587,7 @@ function PaymentButton({ employeeId, employeeName, amount, periodStart, periodEn
   const isDirector = role === "DIRECTOR" || role === "OWNER";
   
   const [showModal, setShowModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [status, setStatus] = useState<"PENDING" | "PAID" | "CANCELLED">("PENDING");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
@@ -594,6 +596,10 @@ function PaymentButton({ employeeId, employeeName, amount, periodStart, periodEn
   const { showSuccess } = useSuccess();
   
   const { data: employee } = useSWR(`/api/employees/${employeeId}`, fetcher);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Показываем кнопку только для директора
   if (!isDirector) {
@@ -639,9 +645,9 @@ function PaymentButton({ employeeId, employeeName, amount, periodStart, periodEn
         {NI ? <NI.CreditCard className="w-4 h-4" /> : "💳"} Выплатить
       </button>
       
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0, 0, 0, 0.8)" }} onClick={() => setShowModal(false)}>
-          <div className="modal-panel max-w-lg w-full p-6 bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 rounded-lg" onClick={(e) => e.stopPropagation()}>
+      {showModal && mounted && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: "rgba(0, 0, 0, 0.8)" }} onClick={() => setShowModal(false)}>
+          <div className="modal-panel max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center gap-2">
                 {NI && <NI.CreditCard className="w-5 h-5 text-red-500" />}
@@ -734,8 +740,9 @@ function PaymentButton({ employeeId, employeeName, amount, periodStart, periodEn
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+      ) : null}
     </>
   );
 }

@@ -1076,8 +1076,19 @@ export async function notifyTask(options: {
   };
   const priorityLine = `Приоритет: <b>${priorityTranslations[options.priority] || options.priority}</b>`;
   
+  // Форматируем дату с днем недели: "Понедельник 17.11.2025"
+  const formatDateWithWeekday = (date: Date | string): string => {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    const weekdays = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+    const weekday = weekdays[dateObj.getDay()];
+    const day = dateObj.getDate().toString().padStart(2, '0');
+    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+    const year = dateObj.getFullYear();
+    return `${weekday} ${day}.${month}.${year}`;
+  };
+  
   const dueDateLine = options.dueDate 
-    ? `\nСрок выполнения: <b>${options.dueDate instanceof Date ? options.dueDate.toLocaleDateString('ru-RU') : new Date(options.dueDate).toLocaleDateString('ru-RU')}</b>` 
+    ? `\nСрок выполнения: <b>${formatDateWithWeekday(options.dueDate)}</b>` 
     : '';
   
   const descriptionLine = options.taskDescription 
