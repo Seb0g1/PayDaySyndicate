@@ -139,7 +139,7 @@ export default function ProductOrderPage() {
       {/* Товары с остатком <= 15 */}
       <div className="card p-6">
         <h2 className="text-xl font-semibold text-white mb-4">
-          Товары для заказа (остаток < 10 шт.)
+          Товары для заказа (остаток &lt; 10 шт.)
         </h2>
         <p className="text-sm text-gray-400 mb-4">
           Укажите официальное наименование и количество в коробке для каждого товара. Товары отсортированы по остатку (сначала с наименьшим остатком).
