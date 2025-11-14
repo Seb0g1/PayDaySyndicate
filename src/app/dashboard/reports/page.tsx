@@ -1,16 +1,12 @@
 "use client";
-import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
-import "react-big-calendar/lib/css/react-big-calendar.css";
-import { format, startOfWeek, getDay } from "date-fns";
+import { format, startOfWeek, addDays, addWeeks, subWeeks, eachDayOfInterval, isSameDay } from "date-fns";
+import { ru } from "date-fns/locale";
 import useSWR from "swr";
 import { Fragment, useMemo, useState, useEffect, useCallback } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { useSession } from "next-auth/react";
 import { useNextIcons } from "@/components/NI";
 import { useRouter } from "next/navigation";
-
-const locales = { ru: require("date-fns/locale/ru") };
-const localizer = dateFnsLocalizer({ format, startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }), getDay, locales });
 
 type Shift = {
   id: string;
@@ -75,44 +71,86 @@ function AdminReportsView() {
   const [employeeId, setEmployeeId] = useState("");
   const { data: shifts } = useSWR<Shift[]>(`/api/shifts?employeeId=${employeeId}`, fetcher);
   const { data: reports } = useSWR<Report[]>("/api/reports", fetcher);
-  const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const ruType = (t: Shift["type"]) => (t === "NIGHT" ? "Ночь" : t === "MORNING" ? "День" : "Другая");
+  const [currentWeek, setCurrentWeek] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const ruType = (t: Shift["type"]) => (t === "NIGHT" ? "Ночь" : t === "MORNING" ? "День" : t === "EVENING" ? "Вечер" : "Другая");
   
-  const events = useMemo(() => {
-    return (shifts ?? []).map((s) => {
-      const startTime = new Date(s.startTime);
-      const endTime = new Date(s.endTime);
-      const timeStr = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')} - ${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
-      
-      return {
-        id: s.id,
-        title: `${s.employee?.name ?? "Сотрудник"}: ${ruType(s.type)} (${timeStr})`,
-        start: startTime,
-        end: endTime,
-        resource: s,
-        allDay: false,
-      };
+  const weekDays = useMemo(() => {
+    return eachDayOfInterval({
+      start: currentWeek,
+      end: addDays(currentWeek, 6)
     });
-  }, [shifts]);
+  }, [currentWeek]);
+
+  const shiftsByDayAndEmployee = useMemo(() => {
+    const map = new Map<string, Shift[]>();
+    (shifts ?? []).forEach(shift => {
+      const shiftDate = new Date(shift.date);
+      weekDays.forEach(day => {
+        if (isSameDay(shiftDate, day)) {
+          const key = `${day.toISOString()}_${shift.employeeId}`;
+          if (!map.has(key)) {
+            map.set(key, []);
+          }
+          map.get(key)!.push(shift);
+        }
+      });
+    });
+    return map;
+  }, [shifts, weekDays]);
+
+  const getShiftTypeColor = (type: Shift["type"]) => {
+    switch (type) {
+      case "MORNING": return "bg-green-600";
+      case "NIGHT": return "bg-blue-600";
+      case "EVENING": return "bg-purple-600";
+      default: return "bg-gray-600";
+    }
+  };
+
+  const getShiftTypeLabel = (type: Shift["type"]) => {
+    switch (type) {
+      case "MORNING": return "День";
+      case "NIGHT": return "Ночь";
+      case "EVENING": return "Вечер";
+      default: return "Другая";
+    }
+  };
+
+  const formatTime = (timeStr: string) => {
+    const date = new Date(timeStr);
+    return format(date, "HH:mm");
+  };
+
+  const getReportsCount = (shiftId: string) => {
+    return reports?.filter(r => r.shiftId === shiftId).length || 0;
+  };
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   
-  const onSelectEvent = async (e: any) => {
-    const shift: Shift = e.resource;
+  const onSelectShift = async (shift: Shift) => {
     const shiftReports = reports?.filter(r => r.shiftId === shift.id) || [];
     setSelectedShift({ ...shift, reports: shiftReports });
     setDetailOpen(true);
   };
 
+  const filteredEmployees = useMemo(() => {
+    if (!employeeId) return employees ?? [];
+    return (employees ?? []).filter(e => e.id === employeeId);
+  }, [employees, employeeId]);
+
   return (
     <div className="space-y-4">
       <div className="card p-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-end justify-between gap-2">
-          <div className="flex-1">
-            <label className="block text-xs text-gray-500">Сотрудник</label>
-            <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="border rounded px-2 py-1 w-full">
-              <option value="">Все</option>
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs mb-1" style={{ color: "rgba(255, 255, 255, 0.7)" }}>Сотрудник</label>
+            <select 
+              value={employeeId} 
+              onChange={(e) => setEmployeeId(e.target.value)} 
+              className="border rounded px-2 py-1 w-full bg-gray-900 text-white"
+            >
+              <option value="">Все сотрудники</option>
               {(employees ?? []).map((e) => (
                 <option key={e.id} value={e.id}>{e.name}</option>
               ))}
@@ -123,38 +161,109 @@ function AdminReportsView() {
           </button>
         </div>
       </div>
-      <div style={{ height: '70vh' }} className="card p-2">
-        <Calendar
-          localizer={localizer}
-          events={events}
-          defaultView={Views.MONTH}
-          date={currentDate}
-          onNavigate={(d) => setCurrentDate(d)}
-          onSelectEvent={onSelectEvent}
-          messages={{
-            month: "Месяц",
-            week: "Неделя",
-            day: "День",
-            agenda: "Повестка",
-            today: "Сегодня",
-            previous: "Назад",
-            next: "Вперёд",
-          }}
-          dayPropGetter={(date) => {
-            const day = getDay(date);
-            if (day === 0 || day === 6) {
-              return { style: { outline: "2px solid #ef4444", outlineOffset: "-1px" } } as any;
-            }
-            return {} as any;
-          }}
-          eventPropGetter={(event) => {
-            const s = event.resource as Shift;
-            const base = { style: { backgroundColor: "#2563eb", borderRadius: 6, color: "#fff", border: 0, padding: 2 } } as any;
-            if (s.type === "NIGHT") base.style.backgroundColor = "#0ea5e9";
-            if (s.type === "MORNING") base.style.backgroundColor = "#22c55e";
-            return base;
-          }}
-        />
+
+      <div className="card p-3">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}
+              className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
+            >
+              ←
+            </button>
+            <div className="text-white font-semibold min-w-[200px] text-center">
+              {format(currentWeek, "d MMM", { locale: ru })} - {format(addDays(currentWeek, 6), "d MMM yyyy", { locale: ru })}
+            </div>
+            <button
+              onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
+              className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded"
+            >
+              →
+            </button>
+            <button
+              onClick={() => setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
+            >
+              Сегодня
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="card p-4 overflow-x-auto">
+        <table className="min-w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="p-2 text-left text-white font-semibold border-b" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+                Сотрудник
+              </th>
+              {weekDays.map((day, idx) => (
+                <th
+                  key={idx}
+                  className={`p-2 text-center text-white font-semibold border-b min-w-[120px] ${
+                    day.getDay() === 0 || day.getDay() === 6 ? "bg-red-900/20" : ""
+                  }`}
+                  style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
+                >
+                  <div className="text-xs text-gray-400">
+                    {format(day, "EEE", { locale: ru })}
+                  </div>
+                  <div className="text-sm">
+                    {format(day, "d MMM", { locale: ru })}
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredEmployees.map((employee) => (
+              <tr key={employee.id} className="border-b" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+                <td className="p-2 text-white font-medium sticky left-0 bg-gray-900 z-10">
+                  {employee.name}
+                </td>
+                {weekDays.map((day, dayIdx) => {
+                  const key = `${day.toISOString()}_${employee.id}`;
+                  const dayShifts = shiftsByDayAndEmployee.get(key) || [];
+                  const isToday = isSameDay(day, new Date());
+                  
+                  return (
+                    <td
+                      key={dayIdx}
+                      className={`p-1 text-center align-top min-h-[80px] ${
+                        isToday ? "bg-blue-900/20" : ""
+                      } ${day.getDay() === 0 || day.getDay() === 6 ? "bg-red-900/10" : ""}`}
+                      style={{ borderColor: "rgba(255, 255, 255, 0.05)" }}
+                    >
+                      <div className="space-y-1">
+                        {dayShifts.map((shift) => {
+                          const reportsCount = getReportsCount(shift.id);
+                          return (
+                            <div
+                              key={shift.id}
+                              onClick={() => onSelectShift(shift)}
+                              className={`${getShiftTypeColor(shift.type)} text-white text-xs p-1 rounded cursor-pointer hover:opacity-80 transition-opacity`}
+                              title={`${getShiftTypeLabel(shift.type)}: ${formatTime(shift.startTime)} - ${formatTime(shift.endTime)} | Отчётов: ${reportsCount}`}
+                            >
+                              <div className="font-semibold">{getShiftTypeLabel(shift.type)}</div>
+                              <div className="text-[10px] opacity-90">
+                                {formatTime(shift.startTime)}-{formatTime(shift.endTime)}
+                              </div>
+                              {reportsCount > 0 && (
+                                <div className="text-[10px] opacity-75 mt-0.5">
+                                  📊 {reportsCount} {reportsCount === 1 ? 'отчёт' : reportsCount < 5 ? 'отчёта' : 'отчётов'}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {selectedShift && (
