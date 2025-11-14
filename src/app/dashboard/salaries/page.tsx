@@ -645,7 +645,7 @@ function PaymentButton({ employeeId, employeeName, amount, periodStart, periodEn
         {NI ? <NI.CreditCard className="w-4 h-4" /> : "💳"} Выплатить
       </button>
       
-      {showModal && mounted && createPortal(
+      {showModal && mounted ? createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: "rgba(0, 0, 0, 0.8)" }} onClick={() => setShowModal(false)}>
           <div className="modal-panel max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
