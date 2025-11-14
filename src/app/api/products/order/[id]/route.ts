@@ -116,15 +116,41 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     console.log("[API /products/order/[id]] Create data:", createData);
     console.log("[API /products/order/[id]] Update data:", updateData);
 
+    // Проверяем, существует ли запись
+    let existingOrder;
+    try {
+      existingOrder = await prisma.productOrder.findUnique({
+        where: { productId: id },
+      });
+      console.log("[API /products/order/[id]] Existing order found:", !!existingOrder);
+    } catch (findError: any) {
+      console.error("[API /products/order/[id]] Error finding existing order:", findError);
+      // Продолжаем, возможно записи нет
+    }
+
     // Обновляем или создаем запись о заказе
     let orderInfo;
     try {
-      orderInfo = await prisma.productOrder.upsert({
-        where: { productId: id },
-        create: createData,
-        update: updateData,
-      });
-      console.log("[API /products/order/[id]] Order info upserted successfully");
+      if (existingOrder) {
+        // Если запись существует, обновляем только если есть что обновлять
+        if (Object.keys(updateData).length > 0) {
+          orderInfo = await prisma.productOrder.update({
+            where: { productId: id },
+            data: updateData,
+          });
+          console.log("[API /products/order/[id]] Order info updated successfully");
+        } else {
+          // Если нет данных для обновления, просто возвращаем существующую запись
+          orderInfo = existingOrder;
+          console.log("[API /products/order/[id]] No data to update, returning existing order");
+        }
+      } else {
+        // Если записи нет, создаем новую
+        orderInfo = await prisma.productOrder.create({
+          data: createData,
+        });
+        console.log("[API /products/order/[id]] Order info created successfully");
+      }
     } catch (upsertError: any) {
       console.error("[API /products/order/[id]] Error upserting order info:", upsertError);
       console.error("[API /products/order/[id]] Error code:", upsertError.code);
