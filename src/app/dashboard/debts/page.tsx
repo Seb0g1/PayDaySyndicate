@@ -51,16 +51,18 @@ export default function DebtsPage() {
   const [filterByEmployee, setFilterByEmployee] = useState<string>(""); // Фильтр по сотруднику
 
   const employeeOptions = useMemo(() => {
-    if (canCreateDebtsForAll) return employees ?? [];
+    if (!employees) return [];
+    if (canCreateDebtsForAll) return employees;
     // Для обычных сотрудников и старшего админа показываем только себя
     if (myEmployeeId) {
-      return (employees ?? []).filter((e) => e.id === myEmployeeId);
+      return employees.filter((e) => e.id === myEmployeeId);
     }
     return [];
   }, [employees, canCreateDebtsForAll, myEmployeeId]);
 
   const filteredProducts = useMemo(() => {
-    return (products ?? []).filter((p) => {
+    if (!products) return [];
+    return products.filter((p) => {
       const byCat = categoryId ? p.categoryRef?.id === categoryId : true;
       const byQ = q.trim() ? p.name.toLowerCase().includes(q.toLowerCase()) : true;
       return byCat && byQ;
@@ -88,7 +90,8 @@ export default function DebtsPage() {
   }, [categoryId, q, filteredProducts, productId]);
 
   const selectedProduct = useMemo(() => {
-    return filteredProducts.find(p => p.id === productId);
+    if (!filteredProducts || !productId) return undefined;
+    return filteredProducts.find(p => p.id === productId) || undefined;
   }, [filteredProducts, productId]);
 
   const add = async () => {
@@ -100,13 +103,15 @@ export default function DebtsPage() {
 
   // Фильтруем долги по выбранному сотруднику (только для директоров и старших админов)
   const filteredDebts = useMemo(() => {
-    if (!canCreateDebtsForAll || !filterByEmployee) return data ?? [];
-    return (data ?? []).filter(d => d.employeeId === filterByEmployee);
+    if (!data) return [];
+    if (!canCreateDebtsForAll || !filterByEmployee) return data;
+    return data.filter(d => d.employeeId === filterByEmployee);
   }, [data, filterByEmployee, canCreateDebtsForAll]);
 
   // Подсчитываем общую сумму отфильтрованных долгов
   const totalAmount = useMemo(() => {
-    return filteredDebts.reduce((sum, d) => sum + Number(d.amount), 0);
+    if (!filteredDebts || filteredDebts.length === 0) return 0;
+    return filteredDebts.reduce((sum, d) => sum + Number(d.amount || 0), 0);
   }, [filteredDebts]);
 
   return (
