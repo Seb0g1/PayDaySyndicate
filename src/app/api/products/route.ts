@@ -28,6 +28,7 @@ export async function GET(req: Request) {
         p."lastImportedAt",
         p."subcategory",
         p."category",
+        c.id as "categoryRefId",
         c.name as "categoryName"
       FROM "Product" p
       LEFT JOIN "Category" c ON c.id = p."categoryId"
@@ -231,7 +232,7 @@ export async function GET(req: Request) {
       langameId: p.langameId || null,
       lastImportedAt: p.lastImportedAt || null,
       subcategory: p.subcategory || null,
-      categoryRef: p.categoryName ? { name: p.categoryName } : null,
+      categoryRef: p.categoryRefId && p.categoryName ? { id: p.categoryRefId, name: p.categoryName } : null,
       // category - это подкатегория/тег, независимое поле, НЕ копия названия категории
       category: p.category || null,
     }));
