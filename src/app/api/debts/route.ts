@@ -111,24 +111,28 @@ export async function POST(req: Request) {
   });
   
   let created;
+  let finalQuantity: number;
+  let finalAmount: number;
+  
   if (existingDebt) {
     // Если долг уже существует, увеличиваем количество
-    const newQuantity = existingDebt.quantity + quantity;
-    const newAmount = product.price.mul(newQuantity);
+    finalQuantity = existingDebt.quantity + quantity;
+    finalAmount = Number(product.price.mul(finalQuantity));
     created = await prisma.debt.update({
       where: { id: existingDebt.id },
       data: {
-        quantity: newQuantity,
-        amount: newAmount,
+        quantity: finalQuantity,
+        amount: product.price.mul(finalQuantity),
         date: new Date(date), // Обновляем дату на последнюю
       },
       include: { employee: { select: { id: true, name: true, telegramTag: true } } },
     });
   } else {
     // Если долга нет, создаем новую запись
-    const amount = product.price.mul(quantity);
+    finalQuantity = quantity;
+    finalAmount = Number(product.price.mul(quantity));
     created = await prisma.debt.create({ 
-      data: { employeeId, productId, quantity, date: new Date(date), amount },
+      data: { employeeId, productId, quantity, date: new Date(date), amount: product.price.mul(quantity) },
       include: { employee: { select: { id: true, name: true, telegramTag: true } } },
     });
   }
@@ -142,7 +146,7 @@ export async function POST(req: Request) {
         chatId: settings.chatId || undefined,
         adminName: userName,
         productName: product.name,
-        quantity,
+        quantity: finalQuantity,
         telegramTag: created.employee?.telegramTag || undefined,
         topicId: settings.topicDebt || undefined,
       });
@@ -152,7 +156,7 @@ export async function POST(req: Request) {
     await createNotificationForEmployee(employeeId, {
       type: "debt",
       title: "Новый долг",
-      message: `Вам записан долг: ${product.name} × ${quantity} шт. = ${Number(amount).toFixed(2)} ₽`,
+      message: `Вам записан долг: ${product.name} × ${finalQuantity} шт. = ${finalAmount.toFixed(2)} ₽`,
       link: `/dashboard/debts`,
     });
   } catch (error) {
