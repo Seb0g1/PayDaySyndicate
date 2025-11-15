@@ -667,33 +667,70 @@ ${adminLine} добавил отчёт о СТОЛАХ себе в смену.
 ${shiftLine}
   `.trim();
 
-  // Если есть фотографии по категориям, отправляем их группами
+  // Если есть фотографии по категориям, собираем все вместе
   if (options.photoCategories && Object.keys(options.photoCategories).length > 0) {
-    let allSent = true;
+    // Собираем все фотографии в один массив
+    const allPhotoUrls: string[] = [];
+    const categoryLabelsList: string[] = [];
     
     for (const [category, files] of Object.entries(options.photoCategories)) {
       if (Array.isArray(files) && files.length > 0) {
         const categoryLabel = categoryLabels[category] || category;
+        categoryLabelsList.push(categoryLabel);
         // files уже содержат полные пути /uploads/reportId/category/fileName
-        const photoUrls = files;
-        
-        const categoryMessage = `${baseMessage}\n\n<b>${categoryLabel}</b>`;
-        
-        const sent = await sendTelegramMediaGroup({
-          photoUrls,
-          caption: categoryMessage,
-    botToken: options.botToken,
-    chatId: options.chatId,
-    topicId: options.topicId,
-  });
-
-        if (!sent) {
-          allSent = false;
-        }
+        allPhotoUrls.push(...files);
       }
     }
     
-    return allSent;
+    // Формируем сообщение со всеми категориями
+    const categoriesText = categoryLabelsList.length > 0 
+      ? `\n\n<b>Категории:</b> ${categoryLabelsList.join(', ')}`
+      : '';
+    
+    const fullMessage = `${baseMessage}${categoriesText}`;
+    
+    // Telegram ограничивает media group до 10 элементов
+    // Если фотографий больше 10, разбиваем на несколько групп
+    const MAX_MEDIA_GROUP_SIZE = 10;
+    
+    if (allPhotoUrls.length <= MAX_MEDIA_GROUP_SIZE) {
+      // Отправляем все фотографии вместе в одном media group
+      return await sendTelegramMediaGroup({
+        photoUrls: allPhotoUrls,
+        caption: fullMessage,
+        botToken: options.botToken,
+        chatId: options.chatId,
+        topicId: options.topicId,
+      });
+    } else {
+      // Разбиваем на несколько групп
+      let allSent = true;
+      
+      // Первая группа с подписью
+      const firstGroup = allPhotoUrls.slice(0, MAX_MEDIA_GROUP_SIZE);
+      const sentFirst = await sendTelegramMediaGroup({
+        photoUrls: firstGroup,
+        caption: fullMessage,
+        botToken: options.botToken,
+        chatId: options.chatId,
+        topicId: options.topicId,
+      });
+      if (!sentFirst) allSent = false;
+      
+      // Остальные группы без подписи
+      for (let i = MAX_MEDIA_GROUP_SIZE; i < allPhotoUrls.length; i += MAX_MEDIA_GROUP_SIZE) {
+        const group = allPhotoUrls.slice(i, i + MAX_MEDIA_GROUP_SIZE);
+        const sent = await sendTelegramMediaGroup({
+          photoUrls: group,
+          botToken: options.botToken,
+          chatId: options.chatId,
+          topicId: options.topicId,
+        });
+        if (!sent) allSent = false;
+      }
+      
+      return allSent;
+    }
   } else if (options.photoUrls && options.photoUrls.length > 0) {
     // Если есть фотографии без категорий, отправляем все в одном сообщении
     return await sendTelegramMediaGroup({
