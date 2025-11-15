@@ -106,26 +106,47 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     // Не прерываем выполнение, если лог не создался
   }
 
-  // Если файлы были добавлены, отправляем уведомление в Telegram
-  // Проверяем, что файлы действительно были добавлены (не было файлов раньше или файлов стало больше)
+  // Проверяем, нужно ли отправлять уведомление
+  // Для TABLE_STATUS проверяем также photoCategories
+  const reportData = parsed.data.data || updated.data || {};
+  const oldReportData = (oldReport.data as any) || {};
+  
   const filesAdded = parsed.data.files && parsed.data.files.length > 0 && 
     (!oldReport.files || oldReport.files.length === 0 || parsed.data.files.length > oldReport.files.length);
   
-  if (filesAdded && parsed.data.files) {
+  // Для TABLE_STATUS проверяем изменения в photoCategories
+  const photoCategoriesChanged = updated.type === "TABLE_STATUS" && 
+    reportData.photoCategories && 
+    Object.keys(reportData.photoCategories).length > 0 &&
+    JSON.stringify(reportData.photoCategories) !== JSON.stringify(oldReportData.photoCategories || {});
+  
+  // Для других типов отчетов проверяем, что данные изменились или файлы добавлены
+  const dataChanged = updated.type !== "TABLE_STATUS" && 
+    (filesAdded || JSON.stringify(reportData) !== JSON.stringify(oldReportData));
+  
+  // Отправляем уведомление если:
+  // 1. Файлы были добавлены
+  // 2. Для TABLE_STATUS - photoCategories изменились
+  // 3. Для других типов - данные изменились
+  const shouldNotify = filesAdded || photoCategoriesChanged || dataChanged;
+  
+  if (shouldNotify) {
     try {
       const settings = await prisma.telegramSettings.findFirst();
       if (settings?.enabled && settings?.botToken) {
         const topicId = getTopicIdForReportType(updated.type, settings);
-        const reportData = updated.data as any || {};
+        const currentReportData = updated.data as any || {};
         
-        // Формируем пути к фотографиям
-        const photoUrls = parsed.data.files.map((file: string) => `/uploads/${updated.id}/${file}`);
+        // Формируем пути к фотографиям (если файлы были добавлены)
+        const photoUrls = (parsed.data.files && parsed.data.files.length > 0)
+          ? parsed.data.files.map((file: string) => `/uploads/${updated.id}/${file}`)
+          : [];
         
         if (updated.type === "FINANCIAL") {
-          const nalLangame = reportData.nalLangame;
-          const nalFact = reportData.nalFact;
-          const discrepancy = reportData.discrepancy;
-          const shiftPhase = reportData.shiftPhase;
+          const nalLangame = currentReportData.nalLangame;
+          const nalFact = currentReportData.nalFact;
+          const discrepancy = currentReportData.discrepancy;
+          const shiftPhase = currentReportData.shiftPhase;
           const shiftDate = updated.shift?.date ? new Date(updated.shift.date) : undefined;
           
           await notifyFinancialReport({
@@ -152,9 +173,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
             });
           }
         } else if (updated.type === "CORK_FEE") {
-          const amountValue = updated.amount || reportData.amount;
-          const category = reportData.category;
-          const pcNumber = reportData.pc;
+          const amountValue = updated.amount || currentReportData.amount;
+          const category = currentReportData.category;
+          const pcNumber = currentReportData.pc;
           
           await notifyCorkFeeReport({
             botToken: settings.botToken,
@@ -191,7 +212,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
           }
         } else if (updated.type === "TABLE_STATUS") {
           const shiftDate = updated.shift?.date ? new Date(updated.shift.date) : undefined;
-          const photoCategories = reportData.photoCategories || {};
+          const photoCategories = currentReportData.photoCategories || {};
           
           // Формируем photoCategories с полными путями для Telegram
           const photoCategoriesWithPaths: Record<string, string[]> = {};
@@ -229,10 +250,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
             chatId: settings.chatId || undefined,
             adminName: user.name,
             telegramTag: updated.employee?.telegramTag || undefined,
-            reportDate: reportData.date,
-            phone: reportData.phone,
-            clientName: reportData.clientName,
-            promoType: reportData.promoType,
+            reportDate: currentReportData.date,
+            phone: currentReportData.phone,
+            clientName: currentReportData.clientName,
+            promoType: currentReportData.promoType,
             topicId,
             photoUrls,
           });
@@ -245,7 +266,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
             adminName: user.name,
             telegramTag: updated.employee?.telegramTag || undefined,
             shiftDate,
-            time: reportData.time,
+            time: currentReportData.time,
             topicId,
             photoUrls,
           });
@@ -255,9 +276,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
             chatId: settings.chatId || undefined,
             adminName: user.name,
             telegramTag: updated.employee?.telegramTag || undefined,
-            invoiceDate: reportData.date,
-            month: reportData.month,
-            description: reportData.description,
+            invoiceDate: currentReportData.date,
+            month: currentReportData.month,
+            description: currentReportData.description,
             topicId,
             photoUrls,
           });

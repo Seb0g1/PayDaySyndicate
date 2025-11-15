@@ -106,9 +106,16 @@ export async function POST(req: Request) {
         ? files.map((file: string) => `/uploads/${created.id}/${file}`)
         : [];
       
-      // Отправляем уведомление только если есть файлы или это важный тип отчета
-      // Если файлов нет, уведомление отправится при их загрузке в PATCH
-      const shouldNotifyNow = files && files.length > 0;
+      // Для TABLE_STATUS проверяем также photoCategories в data
+      const hasPhotoCategories = type === "TABLE_STATUS" && reportData.photoCategories && 
+        Object.keys(reportData.photoCategories).length > 0;
+      
+      // Отправляем уведомление всегда для всех типов отчетов
+      // Для TABLE_STATUS - если есть photoCategories или файлы
+      // Для остальных - всегда (даже без файлов, так как данные важны)
+      const shouldNotifyNow = type === "TABLE_STATUS" 
+        ? (hasPhotoCategories || (files && files.length > 0))
+        : true; // Все остальные типы отправляем всегда
       
       if (shouldNotifyNow) {
         if (type === "FINANCIAL") {
