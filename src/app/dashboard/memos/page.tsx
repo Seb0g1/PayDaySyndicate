@@ -7,7 +7,14 @@ import { useSuccess } from "@/components/SuccessProvider";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: "Failed to fetch" }));
+    throw new Error(error.error || `HTTP error! status: ${res.status}`);
+  }
+  return res.json();
+};
 
 type MemoStep = {
   description: string;
@@ -47,7 +54,10 @@ export default function MemosPage() {
   }
 
   const isDirector = role === "DIRECTOR";
-  const { data: memos, mutate, isLoading } = useSWR<Memo[]>("/api/memos", fetcher);
+  const { data: memos, mutate, isLoading, error: swrError } = useSWR<Memo[]>("/api/memos", fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
 
   const [showModal, setShowModal] = useState(false);
   const [selectedMemo, setSelectedMemo] = useState<Memo | null>(null);
@@ -298,6 +308,14 @@ export default function MemosPage() {
           <div className="relative">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-red-500/20 border-t-red-500"></div>
             <p className="ml-4 text-gray-400 text-lg">Загрузка памяток...</p>
+          </div>
+        </div>
+      ) : swrError ? (
+        <div className="card p-12 text-center bg-gradient-to-br from-red-900/20 to-red-800/10 border border-red-500/30 rounded-2xl">
+          <div className="text-red-400 text-lg mb-2">
+            {NI && <NI.AlertTriangle className="w-12 h-12 mx-auto mb-4" />}
+            <p className="text-xl mb-2">Ошибка загрузки памяток</p>
+            <p className="text-sm text-red-500/70">{swrError.message || "Не удалось загрузить памятки"}</p>
           </div>
         </div>
       ) : !memos || memos.length === 0 ? (

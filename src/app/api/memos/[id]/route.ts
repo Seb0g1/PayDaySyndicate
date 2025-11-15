@@ -16,27 +16,41 @@ const updateMemoSchema = z.object({
 });
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const session = await getAuth();
-  const role = (((session as any)?.user as any)?.role ?? "EMPLOYEE") as string;
+  try {
+    const { id } = await params;
+    const session = await getAuth();
+    const role = (((session as any)?.user as any)?.role ?? "EMPLOYEE") as string;
 
-  const where: any = { id };
-  if (role !== "DIRECTOR") {
-    where.isPublished = true;
+    const where: any = { id };
+    if (role !== "DIRECTOR") {
+      where.isPublished = true;
+    }
+
+    const memo = await prisma.memo.findUnique({
+      where,
+      include: {
+        createdBy: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!memo) {
+      return NextResponse.json({ error: "Memo not found" }, { status: 404 });
+    }
+
+    // Сериализуем steps правильно
+    const serializedMemo = {
+      ...memo,
+      steps: memo.steps ? (typeof memo.steps === 'string' ? JSON.parse(memo.steps) : memo.steps) : null,
+    };
+
+    return NextResponse.json(serializedMemo);
+  } catch (error: any) {
+    console.error("[API /memos/[id] GET] Error:", error);
+    return NextResponse.json(
+      { error: error?.message || "Internal server error" },
+      { status: 500 }
+    );
   }
-
-  const memo = await prisma.memo.findUnique({
-    where,
-    include: {
-      createdBy: { select: { id: true, name: true } },
-    },
-  });
-
-  if (!memo) {
-    return NextResponse.json({ error: "Memo not found" }, { status: 404 });
-  }
-
-  return NextResponse.json(memo);
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {

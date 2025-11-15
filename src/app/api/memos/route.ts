@@ -15,25 +15,39 @@ const memoSchema = z.object({
 });
 
 export async function GET(req: Request) {
-  const session = await getAuth();
-  const role = (((session as any)?.user as any)?.role ?? "EMPLOYEE") as string;
+  try {
+    const session = await getAuth();
+    const role = (((session as any)?.user as any)?.role ?? "EMPLOYEE") as string;
 
-  const where: any = {};
+    const where: any = {};
 
-  // Для сотрудников показываем только опубликованные памятки
-  if (role !== "DIRECTOR") {
-    where.isPublished = true;
+    // Для сотрудников показываем только опубликованные памятки
+    if (role !== "DIRECTOR") {
+      where.isPublished = true;
+    }
+
+    const memos = await prisma.memo.findMany({
+      where,
+      include: {
+        createdBy: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Сериализуем steps правильно
+    const serializedMemos = memos.map((memo) => ({
+      ...memo,
+      steps: memo.steps ? (typeof memo.steps === 'string' ? JSON.parse(memo.steps) : memo.steps) : null,
+    }));
+
+    return NextResponse.json(serializedMemos);
+  } catch (error: any) {
+    console.error("[API /memos GET] Error:", error);
+    return NextResponse.json(
+      { error: error?.message || "Internal server error" },
+      { status: 500 }
+    );
   }
-
-  const memos = await prisma.memo.findMany({
-    where,
-    include: {
-      createdBy: { select: { id: true, name: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return NextResponse.json(memos);
 }
 
 export async function POST(req: Request) {
