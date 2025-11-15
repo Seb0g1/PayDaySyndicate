@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { useNextIcons } from "@/components/NI";
 import { useSuccess } from "@/components/SuccessProvider";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -30,6 +31,11 @@ export default function MemosPage() {
   const role = ((session as any)?.user as any)?.role as string | undefined;
   const NI = useNextIcons();
   const { showSuccess } = useSuccess();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Показываем загрузку пока сессия загружается
   if (status === "loading") {
@@ -262,140 +268,163 @@ export default function MemosPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Заголовок */}
+    <div className="space-y-8 pb-8">
+      {/* Заголовок с градиентом и анимацией */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">
-          Памятки
-        </h1>
+        <div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-red-500 via-red-400 to-red-600 bg-clip-text text-transparent mb-2">
+            Памятки
+          </h1>
+          <p className="text-gray-400 text-sm">Управление инструкциями и памятками для сотрудников</p>
+        </div>
         {isDirector && (
           <button 
-            className="btn-primary flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold shadow-lg shadow-red-500/20 transition-all transform hover:scale-105"
+            className="group relative flex items-center gap-3 px-6 py-3.5 rounded-xl bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold shadow-lg shadow-red-500/30 transition-all transform hover:scale-105 hover:shadow-xl hover:shadow-red-500/40 overflow-hidden"
             onClick={() => {
               resetForm();
               setShowModal(true);
             }}
           >
-            {NI ? <NI.Plus className="w-5 h-5" /> : "+"} Создать памятку
+            <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></span>
+            {NI && <NI.Plus className="w-5 h-5 relative z-10" />}
+            <span className="relative z-10">Создать памятку</span>
           </button>
         )}
       </div>
 
       {/* Список памяток */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
-          <p className="ml-3 text-gray-400">Загрузка памяток...</p>
+        <div className="flex items-center justify-center py-20">
+          <div className="relative">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-red-500/20 border-t-red-500"></div>
+            <p className="ml-4 text-gray-400 text-lg">Загрузка памяток...</p>
+          </div>
         </div>
       ) : !memos || memos.length === 0 ? (
-        <div className="card p-12 text-center">
-          <div className="text-gray-400 text-lg mb-2">
-            {NI && <NI.FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />}
-            {isDirector ? "Памяток пока нет. Создайте первую памятку!" : "Памяток пока нет."}
+        <div className="card p-16 text-center bg-gradient-to-br from-gray-900/50 to-gray-800/30 border border-gray-700/50 rounded-2xl">
+          <div className="text-gray-400 text-lg mb-4">
+            {NI && <NI.FileText className="w-16 h-16 mx-auto mb-6 opacity-30" />}
+            <p className="text-xl mb-2">{isDirector ? "Памяток пока нет" : "Памяток пока нет"}</p>
+            <p className="text-sm text-gray-500">{isDirector ? "Создайте первую памятку для сотрудников!" : "Ожидайте публикации памяток от руководства"}</p>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {memos.map((memo) => (
+          {memos.map((memo, idx) => (
             <div 
               key={memo.id} 
-              className="card p-6 bg-gradient-to-br from-gray-900/50 to-gray-800/50 border border-gray-700/50 hover:border-red-500/50 transition-all hover:shadow-lg hover:shadow-red-500/10"
+              className="group relative card p-0 bg-gradient-to-br from-gray-900/60 via-gray-900/40 to-gray-800/60 border border-gray-700/50 rounded-2xl overflow-hidden hover:border-red-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-red-500/10 hover:-translate-y-1"
+              style={{ animationDelay: `${idx * 50}ms` }}
             >
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-xl font-semibold text-white flex-1 pr-2">{memo.title}</h3>
-                {isDirector && (
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      className="p-2 rounded-lg border border-gray-700 text-gray-300 hover:border-blue-500/50 hover:bg-blue-500/10 hover:text-blue-400 transition-all"
-                      onClick={() => handleEdit(memo)}
-                      title="Редактировать"
-                    >
-                      {NI ? <NI.Edit className="w-4 h-4" /> : "✏️"}
-                    </button>
-                    <button
-                      className="p-2 rounded-lg border border-gray-700 text-gray-300 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-400 transition-all"
-                      onClick={() => handleDelete(memo.id)}
-                      title="Удалить"
-                    >
-                      {NI ? <NI.Trash className="w-4 h-4" /> : "🗑️"}
-                    </button>
+              {/* Декоративный градиент сверху */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-red-400 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              
+              <div className="p-6">
+                {/* Заголовок с действиями */}
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-xl font-bold text-white flex-1 pr-3 group-hover:text-red-400 transition-colors line-clamp-2">
+                    {memo.title}
+                  </h3>
+                  {isDirector && (
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        className="p-2 rounded-lg bg-gray-800/50 hover:bg-blue-500/20 text-gray-400 hover:text-blue-400 border border-gray-700/50 hover:border-blue-500/50 transition-all transform hover:scale-110"
+                        onClick={() => handleEdit(memo)}
+                        title="Редактировать"
+                      >
+                        {NI && <NI.Edit className="w-4 h-4" />}
+                      </button>
+                      <button
+                        className="p-2 rounded-lg bg-gray-800/50 hover:bg-red-500/20 text-gray-400 hover:text-red-400 border border-gray-700/50 hover:border-red-500/50 transition-all transform hover:scale-110"
+                        onClick={() => handleDelete(memo.id)}
+                        title="Удалить"
+                      >
+                        {NI && <NI.Trash className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Содержание */}
+                <div
+                  className="text-sm text-gray-300 mb-4 prose prose-invert max-w-none prose-headings:text-white prose-p:text-gray-300 prose-strong:text-white prose-ul:text-gray-300 prose-ol:text-gray-300 prose-li:text-gray-300 line-clamp-3"
+                  dangerouslySetInnerHTML={{ __html: memo.content }}
+                />
+                
+                {/* Отображение шагов */}
+                {memo.steps && Array.isArray(memo.steps) && memo.steps.length > 0 && (
+                  <div className="space-y-3 mt-4 mb-4">
+                    {memo.steps.slice(0, 2).map((step, idx) => (
+                      <div key={idx} className="p-3 bg-gradient-to-r from-gray-900/50 to-gray-800/30 rounded-xl border border-gray-700/30 hover:border-red-500/30 transition-all">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-bold text-red-400 bg-red-500/20 px-2.5 py-1 rounded-full border border-red-500/30">
+                            Шаг {idx + 1}
+                          </span>
+                        </div>
+                        {step.description && (
+                          <p className="text-xs text-gray-300 mb-2 line-clamp-2">{step.description}</p>
+                        )}
+                        {step.image && (
+                          <div className="relative group/img overflow-hidden rounded-lg">
+                            <img
+                              src={step.image}
+                              alt={`Шаг ${idx + 1}`}
+                              className="w-full h-32 object-cover border border-red-500/20 hover:border-red-500/50 transition-all cursor-pointer transform group-hover/img:scale-105"
+                              onClick={() => window.open(step.image || '', '_blank')}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=`;
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity flex items-end justify-center pb-2">
+                              <span className="text-white text-xs font-medium">Нажмите для просмотра</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {memo.steps.length > 2 && (
+                      <div className="text-xs text-gray-500 text-center py-2">
+                        +{memo.steps.length - 2} еще шагов
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-              
-              <div
-                className="text-sm text-gray-300 mb-4 prose prose-invert max-w-none prose-headings:text-white prose-p:text-gray-300 prose-strong:text-white prose-ul:text-gray-300 prose-ol:text-gray-300 prose-li:text-gray-300"
-                dangerouslySetInnerHTML={{ __html: memo.content }}
-              />
-              
-              {/* Отображение шагов */}
-              {memo.steps && Array.isArray(memo.steps) && memo.steps.length > 0 && (
-                <div className="space-y-4 mt-4 mb-4">
-                  {memo.steps.map((step, idx) => (
-                    <div key={idx} className="p-3 bg-gray-900/30 rounded-lg border border-gray-700/50">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs font-semibold text-red-400 bg-red-500/20 px-2 py-0.5 rounded">Шаг {idx + 1}</span>
+                
+                {/* Старые изображения (для обратной совместимости) */}
+                {(!memo.steps || !Array.isArray(memo.steps) || memo.steps.length === 0) && memo.images.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 mt-4 mb-4">
+                    {memo.images.slice(0, 2).map((img, idx) => (
+                      <div key={idx} className="relative group/img overflow-hidden rounded-lg">
+                        <img
+                          src={img}
+                          alt={`Изображение ${idx + 1}`}
+                          className="w-full h-24 object-cover border border-red-500/20 hover:border-red-500/50 transition-all cursor-pointer transform group-hover/img:scale-105"
+                          onClick={() => window.open(img, '_blank')}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=`;
+                          }}
+                        />
                       </div>
-                      {step.description && (
-                        <p className="text-sm text-gray-300 mb-2">{step.description}</p>
-                      )}
-                      {step.image && (
-                        <div className="relative group">
-                          <img
-                            src={step.image}
-                            alt={`Шаг ${idx + 1}`}
-                            className="w-full h-48 object-cover rounded-lg border border-red-500/30 hover:border-red-500/60 transition-all cursor-pointer"
-                            onClick={() => window.open(step.image || '', '_blank')}
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=`;
-                            }}
-                          />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                            <span className="text-white text-xs">Нажмите для просмотра</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* Старые изображения (для обратной совместимости) */}
-              {(!memo.steps || !Array.isArray(memo.steps) || memo.steps.length === 0) && memo.images.length > 0 && (
-                <div className="grid grid-cols-2 gap-2 mt-4 mb-4">
-                  {memo.images.map((img, idx) => (
-                    <div key={idx} className="relative group">
-                      <img
-                        src={img}
-                        alt={`Изображение ${idx + 1}`}
-                        className="w-full h-32 object-cover rounded-lg border border-red-500/30 hover:border-red-500/60 transition-all cursor-pointer"
-                        onClick={() => window.open(img, '_blank')}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=`;
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                        <span className="text-white text-xs">Нажмите для просмотра</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <div className="flex items-center justify-between pt-4 border-t border-gray-700/50">
-                <div className="text-xs text-gray-500 flex items-center gap-2">
-                  {NI && <NI.Calendar className="w-3 h-3" />}
-                  {new Date(memo.createdAt).toLocaleDateString("ru-RU", { 
-                    day: "2-digit", 
-                    month: "2-digit", 
-                    year: "numeric" 
-                  })}
-                </div>
-                {!memo.isPublished && (
-                  <span className="px-2 py-1 text-xs rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                    Черновик
-                  </span>
+                    ))}
+                  </div>
                 )}
+                
+                {/* Футер */}
+                <div className="flex items-center justify-between pt-4 border-t border-gray-700/30 mt-4">
+                  <div className="text-xs text-gray-500 flex items-center gap-2">
+                    {NI && <NI.Calendar className="w-3.5 h-3.5" />}
+                    {new Date(memo.createdAt).toLocaleDateString("ru-RU", { 
+                      day: "2-digit", 
+                      month: "2-digit", 
+                      year: "numeric" 
+                    })}
+                  </div>
+                  {!memo.isPublished && (
+                    <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                      Черновик
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -403,80 +432,95 @@ export default function MemosPage() {
       )}
 
       {/* Модальное окно создания/редактирования */}
-      {showModal && isDirector && (
+      {showModal && isDirector && mounted && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0, 0, 0, 0.8)" }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200"
+          style={{ background: "rgba(0, 0, 0, 0.85)", backdropFilter: "blur(4px)" }}
           onClick={() => {
             setShowModal(false);
             resetForm();
           }}
         >
           <div 
-            className="modal-panel max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 rounded-lg"
+            className="modal-panel max-w-5xl w-full max-h-[95vh] overflow-y-auto bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 border border-gray-700/50 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
-                {NI && <NI.FileText className="w-6 h-6 text-red-500" />}
-                {selectedMemo ? "Редактировать памятку" : "Создать памятку"}
-              </h2>
-              <button
-                className="text-white text-2xl hover:text-red-500 transition-colors p-1"
-                onClick={() => {
-                  setShowModal(false);
-                  resetForm();
-                }}
-              >
-                ×
-              </button>
+            {/* Заголовок модального окна */}
+            <div className="sticky top-0 z-10 bg-gradient-to-r from-gray-900 to-gray-800 border-b border-gray-700/50 px-6 py-5 rounded-t-2xl backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-500/20 rounded-lg border border-red-500/30">
+                    {NI && <NI.FileText className="w-6 h-6 text-red-400" />}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">
+                      {selectedMemo ? "Редактировать памятку" : "Создать новую памятку"}
+                    </h2>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {selectedMemo ? "Обновите информацию о памятке" : "Заполните форму для создания памятки"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  className="p-2 rounded-lg bg-gray-800/50 hover:bg-red-500/20 text-gray-400 hover:text-red-400 border border-gray-700/50 hover:border-red-500/50 transition-all transform hover:scale-110"
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                  }}
+                >
+                  {NI && <NI.X className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-6">
+            <div className="p-6 space-y-6">
+              {/* Название */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-white flex items-center gap-2">
-                  {NI && <NI.Edit className="w-4 h-4" />}
-                  Название *
+                <label className="block text-sm font-semibold text-white flex items-center gap-2">
+                  {NI && <NI.Edit className="w-4 h-4 text-red-400" />}
+                  Название памятки *
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full border border-gray-700 rounded-lg px-4 py-2.5 bg-gray-900/50 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all"
-                  placeholder="Введите название памятки"
+                  className="w-full border border-gray-700/50 rounded-xl px-4 py-3 bg-gray-900/50 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all"
+                  placeholder="Введите название памятки..."
                 />
               </div>
 
+              {/* Содержание */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-white flex items-center gap-2">
-                  {NI && <NI.FileText className="w-4 h-4" />}
+                <label className="block text-sm font-semibold text-white flex items-center gap-2">
+                  {NI && <NI.FileText className="w-4 h-4 text-red-400" />}
                   Содержание (HTML) *
                 </label>
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  rows={12}
-                  className="w-full border border-gray-700 rounded-lg px-4 py-2.5 bg-gray-900/50 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all font-mono text-sm resize-none"
+                  rows={8}
+                  className="w-full border border-gray-700/50 rounded-xl px-4 py-3 bg-gray-900/50 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all font-mono text-sm resize-none"
                   placeholder="HTML контент, например: &lt;p&gt;Текст&lt;/p&gt; или &lt;ul&gt;&lt;li&gt;Пункт 1&lt;/li&gt;&lt;li&gt;Пункт 2&lt;/li&gt;&lt;/ul&gt;"
                 />
-                <div className="text-xs text-gray-400 mt-1">
-                  Поддерживается HTML разметка. Можно использовать теги: &lt;p&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;br&gt; и др.
+                <div className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                  <span>💡</span>
+                  <span>Поддерживается HTML разметка: &lt;p&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;br&gt; и др.</span>
                 </div>
               </div>
 
               {/* Шаги с фотографиями */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <label className="block text-sm font-medium text-white flex items-center gap-2">
-                    {NI && <NI.List className="w-4 h-4" />}
-                    Шаги (описание + фотография)
+                  <label className="block text-sm font-semibold text-white flex items-center gap-2">
+                    {NI && <NI.List className="w-4 h-4 text-red-400" />}
+                    Пошаговые инструкции
                   </label>
                   <button
                     type="button"
                     onClick={addStep}
-                    className="px-3 py-1.5 text-sm rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 hover:border-red-500/50 transition-all flex items-center gap-2"
+                    className="group px-4 py-2 text-sm rounded-xl bg-gradient-to-r from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30 text-red-400 border border-red-500/30 hover:border-red-500/50 transition-all flex items-center gap-2 transform hover:scale-105"
                   >
-                    {NI && <NI.Plus className="w-4 h-4" />}
+                    {NI && <NI.Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />}
                     Добавить шаг
                   </button>
                 </div>
@@ -484,49 +528,61 @@ export default function MemosPage() {
                 {steps.length > 0 && (
                   <div className="space-y-4">
                     {steps.map((step, index) => (
-                      <div key={index} className="p-4 bg-gray-900/50 rounded-lg border border-gray-700 space-y-3">
+                      <div key={index} className="p-5 bg-gradient-to-br from-gray-900/50 to-gray-800/30 rounded-xl border border-gray-700/50 space-y-4 hover:border-red-500/30 transition-all">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-300">Шаг {index + 1}</span>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500/20 to-red-600/20 border border-red-500/30 flex items-center justify-center">
+                              <span className="text-sm font-bold text-red-400">{index + 1}</span>
+                            </div>
+                            <span className="text-sm font-semibold text-gray-300">Шаг {index + 1}</span>
+                          </div>
                           <button
                             type="button"
                             onClick={() => removeStep(index)}
-                            className="text-red-400 hover:text-red-500 transition-colors"
+                            className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 hover:border-red-500/40 transition-all transform hover:scale-110"
                           >
                             {NI && <NI.Trash className="w-4 h-4" />}
                           </button>
                         </div>
                         
-                        <div className="space-y-2">
-                          <label className="block text-xs text-gray-400">Описание шага</label>
-                          <textarea
-                            value={step.description}
-                            onChange={(e) => updateStep(index, "description", e.target.value)}
-                            rows={2}
-                            className="w-full border border-gray-700 rounded-lg px-3 py-2 bg-gray-800/50 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all text-sm resize-none"
-                            placeholder="Опишите этот шаг..."
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="block text-xs text-gray-400">Фотография</label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => updateStep(index, "imageFile", e.target.files?.[0] || null)}
-                            className="w-full border border-gray-700 rounded-lg px-3 py-2 bg-gray-800/50 text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-red-500 file:text-white hover:file:bg-red-600 file:cursor-pointer"
-                          />
-                          {(step.preview || step.image) && (
-                            <div className="relative group mt-2">
-                              <img
-                                src={step.preview || step.image || ""}
-                                alt={`Шаг ${index + 1}`}
-                                className="w-full h-40 object-cover rounded-lg border border-red-500/30"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=`;
-                                }}
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-2">Описание шага</label>
+                            <textarea
+                              value={step.description}
+                              onChange={(e) => updateStep(index, "description", e.target.value)}
+                              rows={3}
+                              className="w-full border border-gray-700/50 rounded-lg px-3 py-2.5 bg-gray-900/50 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all text-sm resize-none"
+                              placeholder="Опишите этот шаг подробно..."
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-2">Фотография для шага</label>
+                            <div className="space-y-2">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => updateStep(index, "imageFile", e.target.files?.[0] || null)}
+                                className="w-full border border-gray-700/50 rounded-lg px-3 py-2.5 bg-gray-900/50 text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all file:mr-4 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-red-500/20 file:text-red-400 file:border file:border-red-500/30 hover:file:bg-red-500/30 file:cursor-pointer"
                               />
+                              {(step.preview || step.image) && (
+                                <div className="relative group overflow-hidden rounded-lg border border-red-500/30">
+                                  <img
+                                    src={step.preview || step.image || ""}
+                                    alt={`Шаг ${index + 1}`}
+                                    className="w-full h-48 object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=`;
+                                    }}
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-3">
+                                    <span className="text-white text-xs font-medium">Превью фотографии</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -534,107 +590,42 @@ export default function MemosPage() {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-white flex items-center gap-2">
-                  {NI && <NI.Upload className="w-4 h-4" />}
-                  Изображения (устаревшее, используйте шаги)
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => setImages(Array.from(e.target.files || []))}
-                  className="w-full border border-gray-700 rounded-lg px-4 py-2.5 bg-gray-900/50 text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-500 file:text-white hover:file:bg-red-600 file:cursor-pointer"
-                />
-                {images.length > 0 && (
-                  <div className="mt-2 text-sm text-gray-400">
-                    Выбрано новых файлов: {images.length}
-                  </div>
-                )}
-              </div>
-
-              {/* Превью новых изображений */}
-              {previewImages.length > 0 && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-white">Превью новых изображений</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {previewImages.map((preview, idx) => (
-                      <div key={idx} className="relative group">
-                        <img
-                          src={preview}
-                          alt={`Превью ${idx + 1}`}
-                          className="w-full h-32 object-cover rounded-lg border border-gray-700"
-                        />
-                        <button
-                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                          onClick={() => removeNewImage(idx)}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Существующие изображения */}
-              {existingImages.length > 0 && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-white">Существующие изображения</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {existingImages.map((img, idx) => (
-                      <div key={idx} className="relative group">
-                        <img
-                          src={img}
-                          alt={`Изображение ${idx + 1}`}
-                          className="w-full h-32 object-cover rounded-lg border border-red-500/30"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=`;
-                          }}
-                        />
-                        <button
-                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                          onClick={() => removeImage(idx)}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-3 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+              {/* Публикация */}
+              <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-gray-900/50 to-gray-800/30 rounded-xl border border-gray-700/50">
                 <input
                   type="checkbox"
                   checked={isPublished}
                   onChange={(e) => setIsPublished(e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-700 bg-gray-900 text-red-500 focus:ring-red-500 focus:ring-2"
+                  className="w-5 h-5 rounded border-gray-700 bg-gray-900 text-red-500 focus:ring-red-500 focus:ring-2 cursor-pointer"
                 />
-                <label className="text-white font-medium cursor-pointer">
-                  Опубликовать памятку (видна всем сотрудникам)
+                <label className="text-white font-medium cursor-pointer flex items-center gap-2">
+                  {NI && <NI.Eye className="w-4 h-4 text-gray-400" />}
+                  <span>Опубликовать памятку (видна всем сотрудникам)</span>
                 </label>
               </div>
 
+              {/* Кнопки действий */}
               <div className="flex gap-3 pt-4 border-t border-gray-700/50">
                 <button
-                  className="flex-1 btn-primary flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold shadow-lg shadow-red-500/20 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  className="flex-1 group relative flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold shadow-lg shadow-red-500/30 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none overflow-hidden"
                   onClick={selectedMemo ? handleUpdate : handleCreate}
                   disabled={saving || !title || !content}
                 >
+                  <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></span>
                   {saving ? (
                     <>
-                      <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Сохранение...
+                      <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white relative z-10"></div>
+                      <span className="relative z-10">Сохранение...</span>
                     </>
                   ) : (
                     <>
-                      {NI ? <NI.Save className="w-4 h-4" /> : "💾"} {selectedMemo ? "Сохранить изменения" : "Создать памятку"}
+                      {NI ? <NI.Save className="w-4 h-4 relative z-10" /> : "💾"}
+                      <span className="relative z-10">{selectedMemo ? "Сохранить изменения" : "Создать памятку"}</span>
                     </>
                   )}
                 </button>
                 <button
-                  className="px-6 py-3 rounded-lg border border-gray-700 text-gray-300 hover:border-red-500/50 hover:bg-red-500/10 transition-all"
+                  className="px-6 py-3.5 rounded-xl border border-gray-700/50 text-gray-300 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-400 transition-all font-medium"
                   onClick={() => {
                     setShowModal(false);
                     resetForm();
@@ -645,7 +636,8 @@ export default function MemosPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

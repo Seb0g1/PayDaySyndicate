@@ -194,6 +194,10 @@ export function useNextIcons() {
       <line x1="3" y1="12" x2="3.01" y2="12" />
       <line x1="3" y1="18" x2="3.01" y2="18" />
     </>),
+    Eye: (p: any) => S.svg(p, <>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </>),
   } as any;
   return C as any;
 }
